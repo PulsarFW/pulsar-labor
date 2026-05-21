@@ -310,7 +310,12 @@ RegisterNetEvent("HouseRobbery:Client:OnDuty", function(joiner, time)
 
     eventHandlers["search"] = RegisterNetEvent(string.format("HouseRobbery:Client:%s:Search", joiner),
         function(ent, data)
-            if data.id and not _nodes.searched[data.id] then
+            if type(ent) == 'table' and data == nil then
+                data = ent
+                ent = data.entity
+            end
+            if data and not data.id then data.id = data.zone end
+            if data and data.id and not _nodes.searched[data.id] then
                 exports['pulsar-hud']:ProgressWithTickEvent({
                     name = "robbing_action",
                     duration = actionSpecifics[data.type] and (actionSpecifics[data.type][2] * 1000) or
@@ -410,6 +415,7 @@ RegisterNetEvent("HouseRobbery:Client:OnDuty", function(joiner, time)
         end
 
         for k, v in ipairs(intr.robberies.locations) do
+            local capturedK = k
             exports.ox_target:addBoxZone({
                 id = string.format("house-robbery-%s", k),
                 coords = v.coords,
@@ -423,9 +429,10 @@ RegisterNetEvent("HouseRobbery:Client:OnDuty", function(joiner, time)
                         icon = "magnifying-glass",
                         label = "Search",
                         event = string.format("HouseRobbery:Client:%s:Search", joiner),
-                        canInteract = function(data)
-                            return _working and _state == 4 and _nodes ~= nil and data.id and
-                                not _nodes.searched[data.id]
+                        canInteract = function()
+                            local zoneId = string.format("house-robbery-%s", capturedK)
+                            return _working and _state == 4 and _nodes ~= nil and
+                                not _nodes.searched[zoneId]
                         end,
                     },
                 }
