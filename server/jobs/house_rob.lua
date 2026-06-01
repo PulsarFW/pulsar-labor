@@ -291,7 +291,7 @@ AddEventHandler("Labor:Server:Startup", function()
 				exports.ox_inventory:LootCustomWeightedSetWithCount(lootTable, char:GetData("SID"), 1)
 
 				if math.random(100) <= 5 then
-					exports.ox_inventory:AddItem(char:GetData("SID"), "safecrack_kit", 1, {}, 1)
+					exports.ox_inventory:AddItem(source, "safecrack_kit", 1, {}, 1)
 				end
 			end
 

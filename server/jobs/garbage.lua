@@ -200,7 +200,7 @@ AddEventHandler("Labor:Server:Startup", function()
 			elseif luck >= 50 then
 				exports.ox_inventory:LootCustomSet(_lootTable, char:GetData("SID"), 1, math.random(5, 20))
 			end
-			exports.ox_inventory:AddItem(char:GetData("SID"), "recycledgoods", math.random(10), {}, 1)
+			exports.ox_inventory:AddItem(source, "recycledgoods", math.random(10), {}, 1)
 
 			exports["pulsar-core"]:ClientCallback(source, "Garbage:DoingSomeAction", "trashPutIn")
 			if exports['pulsar-labor']:UpdateOffer(_joiners[source], _JOB, 1, true) then

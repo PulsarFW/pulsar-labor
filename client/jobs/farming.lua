@@ -122,18 +122,29 @@ RegisterNetEvent("Farming:Client:OnDuty", function(joiner, time)
 			end
 
 			CreateThread(function()
+				local _showingHint = false
 				while _working do
-					local closest = nil
+					local nearNode = false
 					for k, v in ipairs(_nodes) do
 						local dist = #(vector3(LocalPlayer.state.myPos.x, LocalPlayer.state.myPos.y, LocalPlayer.state.myPos.z) - vector3(v.coords.x, v.coords.y, v.coords.z))
 						if dist <= 20 then
 							DrawMarker(1, v.coords.x, v.coords.y, v.coords.z, 0, 0, 0, 0, 0, 0, 0.5, 0.5, 1.0, 112, 209,
 								244, 250, false, false, 2, false, false, false, false)
+							if dist <= 2.0 then nearNode = true end
 						end
 					end
 
-					Wait(5)
+					if nearNode and not _showingHint then
+						_showingHint = true
+						exports['pulsar-hud']:ActionShow("farming_hint", string.format("{keybind}primary_action{/keybind} %s", _actionLabel or "Harvest"))
+					elseif not nearNode and _showingHint then
+						_showingHint = false
+						exports['pulsar-hud']:ActionHide("farming_hint")
+					end
+
+					Wait(0)
 				end
+				exports['pulsar-hud']:ActionHide("farming_hint")
 			end)
 		end)
 
@@ -150,6 +161,7 @@ RegisterNetEvent("Farming:Client:OnDuty", function(joiner, time)
 	eventHandlers["return"] = RegisterNetEvent(string.format("Farming:Client:%s:EndFarming", joiner), function()
 		_tasks = _tasks + 1
 		_nodes = {}
+		exports['pulsar-hud']:ActionHide("farming_hint")
 		DeleteWaypoint()
 		SetNewWaypoint(2016.165, 4987.541)
 		_blip = exports["pulsar-blips"]:Add("FarmingStart", "Farm Supervisor", { x = 2016.165, y = 4987.541, z = 0 },
@@ -192,6 +204,7 @@ AddEventHandler("Farming:Client:StartJob", function()
 end)
 
 RegisterNetEvent("Farming:Client:OffDuty", function(time)
+	exports['pulsar-hud']:ActionHide("farming_hint")
 	for k, v in pairs(eventHandlers) do
 		RemoveEventHandler(v)
 	end

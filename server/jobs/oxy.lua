@@ -349,7 +349,7 @@ AddEventHandler("Labor:Server:Startup", function()
 				local cashAdd = math.random(200) + 200
 
 				if math.random(100) >= 80 then
-					exports.ox_inventory:AddItem(char:GetData("SID"), "oxy", math.random(3), {}, 1)
+					exports.ox_inventory:AddItem(source, "oxy", math.random(3), {}, 1)
 				end
 
 				local repLevel = exports['pulsar-characters']:RepGetLevel(source, "OxyRun") or 0
@@ -358,7 +358,7 @@ AddEventHandler("Labor:Server:Startup", function()
 				if repLevel >= 5 then
 					chance = 50
 					if math.random(200) <= 1 then
-						exports.ox_inventory:AddItem(char:GetData("SID"), "vpn", 1, {}, 1)
+						exports.ox_inventory:AddItem(source, "vpn", 1, {}, 1)
 					end
 				elseif repLevel >= 3 then
 					chance = 70

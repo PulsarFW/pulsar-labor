@@ -65,7 +65,7 @@ AddEventHandler("Labor:Server:Startup", function()
 
 					local rand = math.random(100)
 					if rand >= (100 - (3 * calcLvl)) then
-						exports.ox_inventory:AddItem(char:GetData("SID"), "moneyband",
+						exports.ox_inventory:AddItem(source, "moneyband",
 							math.random(8, 10 + calcLvl), {}, 1)
 					elseif rand >= (55 - (2 * calcLvl)) then
 						exports.ox_inventory:AddItem(

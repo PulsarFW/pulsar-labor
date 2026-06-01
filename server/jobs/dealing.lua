@@ -256,7 +256,7 @@ AddEventHandler("Labor:Server:Startup", function()
 											lower = math.ceil((itemData.price * (2 + calcLvl)) / 100)
 											higher = math.ceil((itemData.price * (4 + calcLvl)) / 100)
 										end
-										exports.ox_inventory:AddItem(char:GetData("SID"), "moneyroll",
+										exports.ox_inventory:AddItem(source, "moneyroll",
 											math.random(lower, higher),
 											{}, 1)
 									else

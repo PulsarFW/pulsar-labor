@@ -40,53 +40,71 @@ AddEventHandler("Labor:Server:Startup", function()
 
 	exports["pulsar-core"]:RegisterServerCallback("Salvaging:SalvageCar", function(source, data, cb)
 		local char = exports['pulsar-characters']:FetchCharacterSource(source)
-		if
-			char:GetData("TempJob") == _JOB
-			and _joiners[source] ~= nil
-			and _salvaging[_joiners[source]] ~= nil
-			and _salvaging[_joiners[source]].state == 1
-		then
-			if _salvaging[_joiners[source]].entities[data] == nil then
-				_salvaging[_joiners[source]].entities[data] = false
-			end
+		if not char then
+			exports['pulsar-hud']:Notification(source, "error", "Character Not Found")
+			return
+		end
 
-			if not _salvaging[_joiners[source]].entities[data] then
-				_salvaging[_joiners[source]].entities[data] = true
+		local tempJob   = char:GetData("TempJob")
+		local joiner    = _joiners[source]
+		local salvState = joiner and _salvaging[joiner]
 
-				local randomLoot = exports['pulsar-core']:UtilsWeightedRandom(_lootTable)
-				exports.ox_inventory:AddItem(char:GetData("SID"), randomLoot.item, math.random(randomLoot.max),
-					{}, 1)
-				-- local luck = math.random(100)
-				-- if luck == 100 then
-				-- 	exports.ox_inventory:LootCustomSet(_highClassLoot, char:GetData("SID"), 1, math.random(5))
-				-- elseif luck >= 75 then
-				-- 	exports.ox_inventory:LootCustomSet(_lootTable, char:GetData("SID"), 1, math.random(10))
-				-- end
+		if tempJob ~= _JOB then
+			exports['pulsar-hud']:Notification(source, "error", "Not On This Job")
+			return
+		end
 
-				exports.ox_inventory:AddItem(char:GetData("SID"), "salvagedparts", math.random(10), {}, 1)
+		if not joiner or not salvState then
+			exports['pulsar-hud']:Notification(source, "error", "Job State Missing — Re-join")
+			return
+		end
+
+		if salvState.state ~= 1 then
+			exports['pulsar-hud']:Notification(source, "error", "Start The Job First")
+			return
+		end
+
+		if salvState.entities[data] == nil then
+			salvState.entities[data] = false
+		end
+
+		if not salvState.entities[data] then
+			salvState.entities[data] = true
+
+			local randomLoot = exports['pulsar-core']:UtilsWeightedRandom(_lootTable)
+			local lootCount  = math.random(randomLoot.min, randomLoot.max)
+			exports.ox_inventory:AddItem(source, randomLoot.item, lootCount, {}, 1)
+			exports.ox_inventory:AddItem(source, "salvagedparts", math.random(10), {}, 1)
+
+			exports['pulsar-hud']:Notification(source, "success",
+				string.format("Scrapped — Got %sx %s", lootCount, randomLoot.item))
+
+			exports['pulsar-labor']:SendWorkgroupEvent(
+				joiner,
+				string.format("Salvaging:Client:%s:Action", joiner),
+				data
+			)
+
+			if exports['pulsar-labor']:UpdateOffer(joiner, _JOB, 1, true) then
+				salvState.state = 2
 				exports['pulsar-labor']:SendWorkgroupEvent(
-					_joiners[source],
-					string.format("Salvaging:Client:%s:Action", _joiners[source]),
-					data
+					joiner,
+					string.format("Salvaging:Client:%s:EndScrapping", joiner)
 				)
-
-				if exports['pulsar-labor']:UpdateOffer(_joiners[source], _JOB, 1, true) then
-					_salvaging[_joiners[source]].state = 2
-					exports['pulsar-labor']:SendWorkgroupEvent(
-						_joiners[source],
-						string.format("Salvaging:Client:%s:EndScrapping", _joiners[source])
-					)
-					exports['pulsar-labor']:TaskOffer(_joiners[source], _JOB, "Return To The Yard Manager")
-				end
+				exports['pulsar-labor']:TaskOffer(joiner, _JOB, "Return To The Yard Manager")
 			end
 		end
 	end)
 
 	exports["pulsar-core"]:RegisterServerCallback("Salvaging:TriggerDelivery", function(source, data, cb)
 		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+		if not _joiners[source] or not _salvaging[_joiners[source]] then
+			exports['pulsar-hud']:Notification(source, "error", "Not On This Job")
+			return
+		end
 		if _salvaging[_joiners[source]].state == 2 then
 			_salvaging[_joiners[source]].state = 3
-			exports.ox_inventory:AddItem(char:GetData("SID"), "packaged_parts", 1, {}, 1)
+			exports.ox_inventory:AddItem(source, "packaged_parts", 1, {}, 1)
 			exports['pulsar-labor']:StartOffer(_joiners[source], _JOB, "Deliver Packaged Parts", 1)
 			exports['pulsar-labor']:SendWorkgroupEvent(
 				_joiners[source],

@@ -66,13 +66,13 @@ AddEventHandler("Labor:Server:Startup", function()
 
 		if isSpawned then -- Only Allow Hides for Baited Animals
 			if luck >= 90 then
-				exports.ox_inventory:AddItem(char:GetData("SID"), "hide_tier4", 1, {}, 1)
+				exports.ox_inventory:AddItem(source, "hide_tier4", 1, {}, 1)
 			elseif luck >= 80 then
-				exports.ox_inventory:AddItem(char:GetData("SID"), "hide_tier3", 1, {}, 1)
+				exports.ox_inventory:AddItem(source, "hide_tier3", 1, {}, 1)
 			elseif luck >= 70 then
-				exports.ox_inventory:AddItem(char:GetData("SID"), "hide_tier2", 1, {}, 1)
+				exports.ox_inventory:AddItem(source, "hide_tier2", 1, {}, 1)
 			elseif luck >= 50 then
-				exports.ox_inventory:AddItem(char:GetData("SID"), "hide_tier1", 1, {}, 1)
+				exports.ox_inventory:AddItem(source, "hide_tier1", 1, {}, 1)
 			end
 		end
 

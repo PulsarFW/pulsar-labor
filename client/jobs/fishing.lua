@@ -413,7 +413,7 @@ end
 
 function HasCorrectBaitForZone(zone)
     local requiredBait = _fishingZoneBasicBait[zone]
-    if requiredBait and exports.ox_inventory:CheckPlayerHasItem(requiredBait, 1) then
+    if requiredBait and (exports['ox_inventory']:Search('count', requiredBait) or 0) >= 1 then
         return true
     end
     return false
@@ -492,7 +492,7 @@ RegisterNetEvent("Fishing:Client:OffDuty", function(time)
 end)
 
 AddEventHandler("Fishing:Client:OpenShop", function(data)
-    exports.ox_inventory:openInventory("shop", { type = data.type })
+    TriggerEvent('Shop:Client:OpenShop', { shopType = data.type })
 end)
 
 AddEventHandler("Fishing:Client:Sell", function(data)

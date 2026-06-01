@@ -50,7 +50,7 @@ AddEventHandler("Labor:Server:Startup", function()
 							end
 						end
 
-						exports.ox_inventory:AddItem(char:GetData("SID"), lootItem.name, lootItem.count, {}, 1)
+						exports.ox_inventory:AddItem(source, lootItem.name, lootItem.count, {}, 1)
 
 						if lootItem.count > 0 then
 							local hasToolItem = exports.ox_inventory:ItemsGetFirst(char:GetData("SID"),

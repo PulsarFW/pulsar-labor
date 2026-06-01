@@ -389,7 +389,7 @@ AddEventHandler("Labor:Server:Startup", function()
 							vector3(node.location.x, node.location.y, node.location.z)
 							== vector3(data.location.x, data.location.y, data.location.z)
 						then
-							exports.ox_inventory:AddItem(char:GetData("SID"), "crushedrock", math.random(8), {},
+							exports.ox_inventory:AddItem(source, "crushedrock", math.random(8), {},
 								1)
 
 							local luck = math.random(100)
@@ -408,7 +408,7 @@ AddEventHandler("Labor:Server:Startup", function()
 											1
 										)
 									else
-										exports.ox_inventory:AddItem(char:GetData("SID"), node.ore.item, 1, {}, 1)
+										exports.ox_inventory:AddItem(source, node.ore.item, 1, {}, 1)
 									end
 								end
 							else
