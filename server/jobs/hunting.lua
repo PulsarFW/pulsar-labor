@@ -14,24 +14,24 @@ local _saleData = {
 AddEventHandler("Labor:Server:Startup", function()
 	RegisterHuntingItems()
 
-	exports['pulsar-core']:MiddlewareAdd("Characters:Spawning", function(source)
+	plsr.Middleware:Add("Characters:Spawning", function(source)
 		TriggerClientEvent("Hunting:Client:Polys", source, HuntingConfig)
 	end)
 
-	exports['pulsar-pedinteraction']:VendorCreate("HuntingBaits", false, "Hunting", false, {}, {
-		{ id = 1, item = "cow_bait",     price = 250,  qty = -1, vpn = false, rep = "Hunting", repLvl = 2, },
-		{ id = 2, item = "chicken_bait", price = 250,  qty = -1, vpn = false, rep = "Hunting", repLvl = 2, },
-		{ id = 3, item = "rabbit_bait",  price = 250,  qty = -1, vpn = false, rep = "Hunting", repLvl = 2, },
-		{ id = 4, item = "pig_bait",     price = 250,  qty = -1, vpn = false, rep = "Hunting", repLvl = 2, },
-		{ id = 5, item = "boar_bait",    price = 250,  qty = -1, vpn = false, rep = "Hunting", repLvl = 4, },
-		{ id = 6, item = "deer_bait",    price = 250,  qty = -1, vpn = false, rep = "Hunting", repLvl = 4, },
-		{ id = 7, item = "exotic_bait",  price = 1000, qty = -1, vpn = false, rep = "Hunting", repLvl = 7, },
-	}, "badge-dollar", "Hunting")
+	plsr.Vendor:Create("HuntingBaits", false, "Hunting", false, {}, {
+		{ id = 1, item = "cow_bait", price = 250, qty = -1, vpn = false, rep = "Hunting", repLvl = 2, },
+		{ id = 2, item = "chicken_bait", price = 250, qty = -1, vpn = false, rep = "Hunting", repLvl = 2, },
+		{ id = 3, item = "rabbit_bait", price = 250, qty = -1, vpn = false, rep = "Hunting", repLvl = 2, },
+		{ id = 4, item = "pig_bait", price = 250, qty = -1, vpn = false, rep = "Hunting", repLvl = 2, },
+		{ id = 5, item = "boar_bait", price = 250, qty = -1, vpn = false, rep = "Hunting", repLvl = 4, },
+		{ id = 6, item = "deer_bait", price = 250, qty = -1, vpn = false, rep = "Hunting", repLvl = 4, },
+		{ id = 7, item = "exotic_bait", price = 1000, qty = -1, vpn = false, rep = "Hunting", repLvl = 7, },
+	}, "dollar-sign", "Hunting")
 
-	exports["pulsar-core"]:RegisterServerCallback("Hunting:StartJob", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Hunting:StartJob", function(source, data, cb)
 		if _hunting[data] ~= nil and _hunting[data].state == 0 then
 			_hunting[_joiners[source]].state = 1
-			exports['pulsar-labor']:StartOffer(_joiners[source], _JOB, "Harvest Animals", 6)
+			plsr.Labor.Offers:Start(_joiners[source], _JOB, "Harvest Animals", 6)
 			TriggerClientEvent(string.format("Hunting:Client:%s:Startup", data), -1)
 			cb(true)
 		else
@@ -39,20 +39,19 @@ AddEventHandler("Labor:Server:Startup", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Hunting:FinishJob", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Hunting:FinishJob", function(source, data, cb)
 		if _joiners[source] ~= nil and _hunting[_joiners[source]].state == 2 then
 			_hunting[_joiners[source]].state = 3
-			exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-				string.format("Hunting:Client:%s:FinishJob", _joiners[source]))
-			exports['pulsar-labor']:ManualFinishOffer(_joiners[source], _JOB)
+			plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("Hunting:Client:%s:FinishJob", _joiners[source]))
+			plsr.Labor.Offers:ManualFinish(_joiners[source], _JOB)
 			cb(true)
 		else
 			cb(false)
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Hunting:HarvestAnimal", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Hunting:HarvestAnimal", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		local luck = math.random(100)
 		local animal = data.animal
 		local isSpawned = data.isSpawned
@@ -66,32 +65,31 @@ AddEventHandler("Labor:Server:Startup", function()
 
 		if isSpawned then -- Only Allow Hides for Baited Animals
 			if luck >= 90 then
-				exports.ox_inventory:AddItem(source, "hide_tier4", 1, {}, 1)
+				plsr.Inventory:AddItem(char:GetData("SID"), "hide_tier4", 1, {}, 1)
 			elseif luck >= 80 then
-				exports.ox_inventory:AddItem(source, "hide_tier3", 1, {}, 1)
+				plsr.Inventory:AddItem(char:GetData("SID"), "hide_tier3", 1, {}, 1)
 			elseif luck >= 70 then
-				exports.ox_inventory:AddItem(source, "hide_tier2", 1, {}, 1)
+				plsr.Inventory:AddItem(char:GetData("SID"), "hide_tier2", 1, {}, 1)
 			elseif luck >= 50 then
-				exports.ox_inventory:AddItem(source, "hide_tier1", 1, {}, 1)
+				plsr.Inventory:AddItem(char:GetData("SID"), "hide_tier1", 1, {}, 1)
 			end
 		end
 
 		if #HuntingSrvConfig.Loot[animal] > 0 then
-			exports.ox_inventory:LootCustomSetWithCount(HuntingSrvConfig.Loot[animal], char:GetData("SID"), 1)
+			plsr.Loot:CustomSetWithCount(HuntingSrvConfig.Loot[animal], char:GetData("SID"), 1)
 		end
 
 		if char:GetData("TempJob") == _JOB and _joiners[source] ~= nil and _hunting[_joiners[source]] ~= nil then
-			if exports['pulsar-labor']:UpdateOffer(_joiners[source], _JOB, 1, true) then
+			if plsr.Labor.Offers:Update(_joiners[source], _JOB, 1, true) then
 				_hunting[_joiners[source]].state = 2
-				exports['pulsar-labor']:TaskOffer(_joiners[source], _JOB, "Talk To The Shop Owner")
-				exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-					string.format("Hunting:Client:%s:Finish", _joiners[source]))
+				plsr.Labor.Offers:Task(_joiners[source], _JOB, "Talk To The Shop Owner")
+				plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("Hunting:Client:%s:Finish", _joiners[source]))
 			end
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Hunting:GenerateAnimal", function(source, data, cb)
-		exports["pulsar-core"]:ClientCallback(source, "Polyzone:GetAllZonesPlayerIn", {}, function(zones)
+	plsr.Callbacks:RegisterServerCallback("Hunting:GenerateAnimal", function(source, data, cb)
+		plsr.Callbacks:ClientCallback(source, "Polyzone:GetAllZonesPlayerIn", {}, function(zones)
 			local found = false
 			for _, zone in ipairs(zones) do
 				if zone and string.sub(zone.id, 1, string.len("hunting")) == "hunting" then
@@ -117,71 +115,67 @@ AddEventHandler("Labor:Server:Startup", function()
 			end
 
 			if not found then
-				exports['pulsar-hud']:Notification(source, "error", "Not Allowed To Hunt Here")
+				plsr.Execute:Client(source, "Notification", "Error", "Not Allowed To Hunt Here")
 			end
 		end)
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Hunting:Sell", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
-		local repLvl = exports['pulsar-characters']:RepGetLevel(source, _JOB)
+	plsr.Callbacks:RegisterServerCallback("Hunting:Sell", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
+		local repLvl = plsr.Reputation:GetLevel(source, _JOB)
 
 		if _saleData[data] ~= nil then
 			if repLvl >= _saleData[data].rep then
-				local count = exports.ox_inventory:ItemsGetCount(char:GetData("SID"), 1, _saleData[data].item) or
-					0
+				local count = plsr.Inventory.Items:GetCount(char:GetData("SID"), 1, _saleData[data].item) or 0
 				if count > 0 then
-					if exports.ox_inventory:Remove(char:GetData("SID"), 1, _saleData[data].item, count) then
-						exports['pulsar-finance']:WalletModify(source, _saleData[data].price * count)
+					if plsr.Inventory.Items:Remove(char:GetData("SID"), 1, _saleData[data].item, count) then
+						plsr.Wallet:Modify(source, _saleData[data].price * count)
 					end
 				else
-					exports['pulsar-hud']:Notification(source, "error",
-						"You Have No Hides Of That Tier")
+					plsr.Execute:Client(source, "Notification", "Error", "You Have No Hides Of That Tier")
 				end
 			else
-				exports['pulsar-hud']:Notification(source, "error", "You Must Prove Yourself First")
+				plsr.Execute:Client(source, "Notification", "Error", "You Must Prove Yourself First")
 			end
 		end
 	end)
 end)
 
 function RegisterHuntingItems()
-	exports.ox_inventory:RegisterUse("hunting_map_dark", "HuntingMap", function(source, itemData)
+	plsr.Inventory.Items:RegisterUse("hunting_map_dark", "HuntingMap", function(source, itemData)
 		if itemData then
-			exports["pulsar-core"]:ClientCallback(source, "Hunting:Client:CanShowMap", itemData, function(canShow)
+			plsr.Callbacks:ClientCallback(source, "Hunting:Client:CanShowMap", itemData, function(canShow)
 				TriggerClientEvent("Hunting:Client:ShowMap", source, itemData)
 			end)
 		end
 	end)
-	exports.ox_inventory:RegisterUse("hunting_map_light", "HuntingMap", function(source, itemData)
+	plsr.Inventory.Items:RegisterUse("hunting_map_light", "HuntingMap", function(source, itemData)
 		if itemData then
-			exports["pulsar-core"]:ClientCallback(source, "Hunting:Client:CanShowMap", itemData, function(canShow)
+			plsr.Callbacks:ClientCallback(source, "Hunting:Client:CanShowMap", itemData, function(canShow)
 				TriggerClientEvent("Hunting:Client:ShowMap", source, itemData)
 			end)
 		end
 	end)
 
 	for k, v in pairs(HuntingConfig.Baits) do
-		exports.ox_inventory:RegisterUse(k, "Hunting", function(source, item)
+		plsr.Inventory.Items:RegisterUse(k, "Hunting", function(source, item)
 			if
 				_baitCds[source] == nil
 				or (os.time() - _baitCds[source]) >= HuntingConfig.Baits[item.Name].cooldown * 60
 			then
-				local char = exports['pulsar-characters']:FetchCharacterSource(source)
-				exports["pulsar-core"]:ClientCallback(source, "Polyzone:GetAllZonesPlayerIn", {}, function(zones)
+				local char = plsr.Fetch:CharacterSource(source)
+				plsr.Callbacks:ClientCallback(source, "Polyzone:GetAllZonesPlayerIn", {}, function(zones)
 					local found = false
 					for _, zone in ipairs(zones) do
 						if zone and string.sub(zone.id, 1, string.len("hunting")) == "hunting" then
 							local zoneId = tonumber(string.sub(zone.id, string.len("hunting") + 1))
 							if HuntingConfig.Zones[zoneId] ~= nil then
-								exports["pulsar-core"]:ClientCallback(source, "Hunting:PlaceTrap", item.Name,
-									function(successful)
-										if successful then
-											_baitCds[source] = os.time()
-											exports.ox_inventory:RemoveSlot(item.Owner, item.Name, 1, item.Slot,
-												1)
-										end
-									end)
+								plsr.Callbacks:ClientCallback(source, "Hunting:PlaceTrap", item.Name, function(successful)
+									if successful then
+										_baitCds[source] = os.time()
+										plsr.Inventory.Items:RemoveSlot(item.Owner, item.Name, 1, item.Slot, 1)
+									end
+								end)
 
 								found = true
 								break
@@ -190,21 +184,15 @@ function RegisterHuntingItems()
 					end
 
 					if not found then
-						exports['pulsar-hud']:Notification(source, "error", "Not Allowed To Hunt Here")
+						plsr.Execute:Client(source, "Notification", "Error", "Not Allowed To Hunt Here")
 					end
 				end)
 			else
-				exports['pulsar-hud']:Notification(source, "error", "You Cannot Use Bait Yet")
+				plsr.Execute:Client(source, "Notification", "Error", "You Cannot Use Bait Yet")
 			end
 		end)
 	end
 end
-
-RegisterNetEvent('ox_inventory:ready', function()
-	if GetResourceState(GetCurrentResourceName()) == 'started' then
-		RegisterHuntingItems()
-	end
-end)
 
 AddEventHandler("Hunting:Server:OnDuty", function(joiner, members, isWorkgroup)
 	_joiners[joiner] = joiner
@@ -215,20 +203,18 @@ AddEventHandler("Hunting:Server:OnDuty", function(joiner, members, isWorkgroup)
 		state = 0,
 	}
 
-	local char = exports['pulsar-characters']:FetchCharacterSource(joiner)
+	local char = plsr.Fetch:CharacterSource(joiner)
 	char:SetData("TempJob", _JOB)
-	exports['pulsar-phone']:NotificationAdd(joiner, "Job Activity", "You started a job", os.time(), 6000, "labor",
-		{})
+	plsr.Phone.Notification:Add(joiner, "Job Activity", "You started a job", os.time(), 6000, "labor", {})
 	TriggerClientEvent("Hunting:Client:OnDuty", joiner, joiner, os.time())
 
-	exports['pulsar-labor']:TaskOffer(joiner, _JOB, "Talk To The Shop Owner")
+	plsr.Labor.Offers:Task(joiner, _JOB, "Talk To The Shop Owner")
 	if #members > 0 then
 		for k, v in ipairs(members) do
 			_joiners[v.ID] = joiner
-			local member = exports['pulsar-characters']:FetchCharacterSource(v.ID)
+			local member = plsr.Fetch:CharacterSource(v.ID)
 			member:SetData("TempJob", _JOB)
-			exports['pulsar-phone']:NotificationAdd(v.ID, "Job Activity", "You started a job", os.time(), 6000,
-				"labor", {})
+			plsr.Phone.Notification:Add(v.ID, "Job Activity", "You started a job", os.time(), 6000, "labor", {})
 			TriggerClientEvent("Hunting:Client:OnDuty", v.ID, joiner, os.time())
 		end
 	end

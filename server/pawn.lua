@@ -1,3 +1,5 @@
+local _ran = false
+
 local _pawnPricing = {
 	[0] = 10,
 	[1] = 20,
@@ -89,7 +91,12 @@ local _pawnItems = {
 }
 
 AddEventHandler("Labor:Server:Startup", function()
-	exports['pulsar-characters']:RepCreate("Pawn", "Pawn Shop", {
+	if _ran then
+		return
+	end
+	_ran = true
+
+	plsr.Reputation:Create("Pawn", "Pawn Shop", {
 		{ label = "Rank 1", value = 5000 },
 		{ label = "Rank 2", value = 10000 },
 		{ label = "Rank 3", value = 20000 },
@@ -97,22 +104,22 @@ AddEventHandler("Labor:Server:Startup", function()
 		{ label = "Rank 5", value = 40000 },
 	})
 
-	exports["pulsar-core"]:RegisterServerCallback("Pawn:Sell", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Pawn:Sell", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char then
 			local pawning = _pawnItems[data]
 			if pawning then
-				local repLvl = exports['pulsar-characters']:RepGetLevel(source, "Pawn")
+				local repLvl = plsr.Reputation:GetLevel(source, "Pawn")
 
 				local money = 0
 				local earntRep = 0
 
 				for k, v in ipairs(pawning) do
-					local count = exports.ox_inventory:ItemsGetCount(char:GetData("SID"), 1, v.item) or 0
+					local count = plsr.Inventory.Items:GetCount(char:GetData("SID"), 1, v.item) or 0
 					if count > 0 then
-						local itemData = exports.ox_inventory:ItemsGetData(v.item)
+						local itemData = plsr.Inventory.Items:GetData(v.item)
 
-						if itemData and exports.ox_inventory:Remove(char:GetData("SID"), 1, v.item, count) then
+						if itemData and plsr.Inventory.Items:Remove(char:GetData("SID"), 1, v.item, count) then
 							money += math.floor(((_pawnPricing[repLvl] / 100) * itemData.price) * count)
 							earntRep += v.rep * count
 						end
@@ -120,10 +127,10 @@ AddEventHandler("Labor:Server:Startup", function()
 				end
 
 				if money > 0 then
-					exports['pulsar-finance']:WalletModify(source, money)
-					exports['pulsar-characters']:RepAdd(source, "Pawn", earntRep)
+					plsr.Wallet:Modify(source, money)
+					plsr.Reputation.Modify:Add(source, "Pawn", earntRep)
 				else
-					exports['pulsar-hud']:Notification(source, "error", "You Have Nothing To Sell")
+					plsr.Execute:Client(source, "Notification", "Error", "You Have Nothing To Sell")
 				end
 			end
 		end

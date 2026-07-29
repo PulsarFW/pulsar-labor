@@ -1,21 +1,21 @@
 function RegisterCallbacks()
-	exports["pulsar-core"]:RegisterServerCallback("Labor:GetJobs", function(source, data, cb)
-		cb(exports['pulsar-labor']:GetJobs())
+	plsr.Callbacks:RegisterServerCallback("Labor:GetJobs", function(source, data, cb)
+		cb(plsr.Labor.Get:Jobs())
 	end)
-	exports["pulsar-core"]:RegisterServerCallback("Labor:GetGroups", function(source, data, cb)
-		cb(exports['pulsar-labor']:GetGroups())
-	end)
-
-	exports["pulsar-core"]:RegisterServerCallback("Labor:GetReputations", function(source, data, cb)
-		cb(exports['pulsar-characters']:RepView(source))
+	plsr.Callbacks:RegisterServerCallback("Labor:GetGroups", function(source, data, cb)
+		cb(plsr.Labor.Get:Groups())
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Labor:AcceptRequest", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Labor:GetReputations", function(source, data, cb)
+		cb(plsr.Reputation:View(source))
+	end)
+
+	plsr.Callbacks:RegisterServerCallback("Labor:AcceptRequest", function(source, data, cb)
 		if _pendingInvites[data.source] ~= nil then
-			local state = exports['pulsar-labor']:JoinWorkgroup(_pendingInvites[data.source], data.source)
+			local state = plsr.Labor.Workgroups:Join(_pendingInvites[data.source], data.source)
 
 			if state then
-				exports['pulsar-phone']:NotificationAdd(
+				plsr.Phone.Notification:Add(
 					data.source,
 					"Job Activity",
 					"You Joined A Workgroup",
@@ -33,11 +33,11 @@ function RegisterCallbacks()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Labor:DeclineRequest", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Labor:DeclineRequest", function(source, data, cb)
 		if _pendingInvites[data.source] ~= nil then
 			_pendingInvites[data.source] = nil
 
-			exports['pulsar-phone']:NotificationAdd(
+			plsr.Phone.Notification:Add(
 				data.source,
 				"Job Activity",
 				"Your Group Request Was Denied",
@@ -47,7 +47,7 @@ function RegisterCallbacks()
 				{}
 			)
 
-			exports['pulsar-phone']:NotificationAdd(
+			plsr.Phone.Notification:Add(
 				source,
 				"Labor Activity",
 				"You Denied A Group Request",

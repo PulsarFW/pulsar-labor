@@ -6,12 +6,18 @@
 
 # PULSAR-LABOR
 
-### Legal and illegal side hustle income activities
+### Side-gig gathering jobs — dumpster diving, farming, fishing, hunting, house robbery, and the coke/oxy/weed drug-processing gigs
 
 <br/>
 
 ![Lua](https://img.shields.io/badge/Lua_5.4-2C2D72?style=flat-square&logo=lua&logoColor=white)
 ![FiveM](https://img.shields.io/badge/FiveM-F40552?style=flat-square)
+
+<br/>
+
+<sub>Enjoy the framework? A coffee helps keep active development, hardening, and support going.</sub>
+
+<a href="https://buymeacoffee.com/pulsarframework"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 50px !important;width: 180px !important;" /></a>
 
 <br/>
 
@@ -23,20 +29,21 @@
 
 ## Overview
 
-Activity-based income system for Pulsar Framework covering both legal hustles (fishing, hunting, farming) and illegal operations (coke runs, oxy runs, house robberies, weed, dumpster diving). Each activity is independently configurable.
+Registers `plsr.Labor`. Each gig has its own config under `configs/` — `coke`, `dumpster`, `farming`, `fishing`, `house_rob`, `hunting`, `oxy`, `prison`, `weed` — sharing a common gathering/minigame framework (`shared/`, `client/pawn.lua`) rather than each being a standalone system.
 
 ---
 
 ## Dependencies
 
-- `pulsar-core` — framework core
-- `ox_inventory` — item handling
+- `pulsar_core` — framework core
+- `pulsar_inventory` — payout items land through `plsr.Inventory:AddItem`
+- `pulsar_pwnzor` — anti-cheat check loaded alongside every resource
 
 ---
 
 ## License
 
-This resource is proprietary software. All rights reserved by the Pulsar Framework team. Unauthorized distribution or resale is prohibited.
+This resource is free to use and modify under the [Pulsar Framework License](LICENSE.md). Redistribution is welcome as long as it stays free — selling this resource or any derivative of it requires written permission from the Pulsar Framework team.
 
 ---
 

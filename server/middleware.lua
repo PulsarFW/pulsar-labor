@@ -6,12 +6,12 @@ function RunLaborLogoutShit(source)
                     for k3, v3 in pairs(_Groups) do
                         for k4, v4 in ipairs(v3.Members) do
                             if v3.Creator.ID == source then
-                                return exports['pulsar-labor']:DisbandWorkgroup(source, true)
+                                return plsr.Labor.Workgroups:Disband(source, true)
                             end
                         end
                     end
                 else
-                    exports['pulsar-labor']:OffDuty(k, source)
+                    plsr.Labor.Duty:Off(k, source)
                 end
             end
         end
@@ -19,11 +19,11 @@ function RunLaborLogoutShit(source)
 
     for k, v in pairs(_Groups) do
         if v.Creator.ID == source then
-            return exports['pulsar-labor']:DisbandWorkgroup(source, true)
+            return plsr.Labor.Workgroups:Disband(source, true)
         else
             for k2, v2 in ipairs(v.Members) do
                 if v2.ID == source then
-                    return exports['pulsar-labor']:LeaveWorkgroup(v, source)
+                    return plsr.Labor.Workgroups:Leave(v, source)
                 end
             end
         end
@@ -33,7 +33,7 @@ function RunLaborLogoutShit(source)
 
     for k, v in pairs(_pendingInvites) do
         if v == source then
-            exports['pulsar-phone']:NotificationAdd(
+            plsr.Phone.Notification:Add(
                 v.Creator.ID,
                 "Job Activity",
                 "Requested Group Is No Longer Available",
@@ -47,8 +47,9 @@ function RunLaborLogoutShit(source)
     end
 end
 
-function RegisterMiddleware()
 
+function RegisterMiddleware()
+    
 end
 
 AddEventHandler("Characters:Server:PlayerLoggedOut", RunLaborLogoutShit)

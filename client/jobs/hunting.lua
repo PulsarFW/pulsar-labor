@@ -33,7 +33,7 @@ local gms = {
 	[435688960] = true,
 }
 
-local wepHash = `WEAPON_SNIPERRIFLE2`
+local wepHash = `WEAPON_SNIPERRIFLE`
 local knifeHash = `WEAPON_KNIFE`
 local wepEquipped = false
 local wepBlocking = false
@@ -54,7 +54,7 @@ function Block()
 	end
 	wepBlocking = true
 	CreateThread(function()
-		while LocalPlayer.state.loggedIn and wepEquipped do
+		while plsr.State.flags.loggedIn and wepEquipped do
 			local ply = PlayerId()
 			local ped = PlayerPedId()
 			local ent = nil
@@ -65,7 +65,7 @@ function Block()
 				DisableControlAction(0, 24, true)
 				DisableControlAction(0, 47, true)
 				DisableControlAction(0, 58, true)
-				DisablePlayerFiring(LocalPlayer.state.ped, true)
+				DisablePlayerFiring(PlayerPedId(), true)
 			end
 			Wait(1)
 		end
@@ -80,8 +80,8 @@ CreateThread(function()
 	DecorRegister("HuntingHarvested", 2)
 
 	while true do
-		if LocalPlayer.state.loggedIn and Hud ~= nil then
-			if GetSelectedPedWeapon(LocalPlayer.state.ped) == wepHash then
+		if plsr.State.flags.loggedIn and Hud ~= nil then
+			if GetSelectedPedWeapon(PlayerPedId()) == wepHash then
 				wepEquipped = true
 				Block()
 			else
@@ -102,15 +102,15 @@ function StartBait(item, loc)
 	local baitConf = _localConfig.Baits[item]
 	CreateThread(function()
 		local dist = 0
-		while dist <= baitConf.distance and _baited and LocalPlayer.state.loggedIn do
-			dist = #(vector3(LocalPlayer.state.myPos) - vector3(loc.x, loc.y, loc.z))
+		while dist <= baitConf.distance and _baited and plsr.State.flags.loggedIn do
+			dist = #(vector3(plsr.State.flags.position) - vector3(loc.x, loc.y, loc.z))
 			Wait(500)
 		end
 
-		if _baited and LocalPlayer.state.loggedIn then
+		if _baited and plsr.State.flags.loggedIn then
 			local t = (1000 * 60 * math.random(1, baitConf.time))
 			Wait(t)
-			exports["pulsar-core"]:ServerCallback("Hunting:GenerateAnimal", item, function(r)
+			plsr.Callbacks:ServerCallback("Hunting:GenerateAnimal", item, function(r)
 				if r ~= nil then
 					SpawnAnimal(r, loc, baitConf)
 				end
@@ -165,7 +165,7 @@ function SpawnAnimal(data, loc, bait)
 				ClearPedTasks(spawnedAnimal)
 				Wait(1500)
 				TaskStartScenarioInPlace(spawnedAnimal, "WORLD_DEER_GRAZING", 0, true)
-				SetTimeout(12500, function()
+				Citizen.SetTimeout(12500, function()
 					startFlee = true
 				end)
 			end
@@ -185,18 +185,19 @@ end
 RegisterNetEvent("Hunting:Client:Polys", function(c)
 	_localConfig = c
 	for k, v in ipairs(_localConfig.Zones) do
-		exports['pulsar-polyzone']:CreateCircle(string.format("hunting%s", k), v.coords, v.radius, v.options)
+		plsr.Polyzone.Create:Circle(string.format("hunting%s", k), v.coords, v.radius, v.options)
 	end
 
 	for k, v in pairs(_localConfig.Animals) do
-		exports.ox_target:addModel(v.Model, {
+		plsr.Targeting:AddPedModel(v.Model, "magnifying-glass", {
 			{
 				icon = "rabbit-running",
-				label = string.format("Harvest %s", v.Name),
+				text = string.format("Harvest %s", v.Name),
 				event = "Hunting:Client:Harvest",
-				distance = 2.0,
-				canInteract = function(data, entity)
-					local isEquipped, hash = GetCurrentPedWeapon(LocalPlayer.state.ped, 1)
+				minDist = 2.0,
+				data = v.ID,
+				isEnabled = function(data, entity)
+					local isEquipped, hash = GetCurrentPedWeapon(PlayerPedId(), 1)
 					return hash == knifeHash
 						and IsPedDeadOrDying(entity.entity)
 						and (not DecorExistOn(entity.entity, "BeingHarvested") or not DecorGetBool(
@@ -211,26 +212,28 @@ RegisterNetEvent("Hunting:Client:Polys", function(c)
 			},
 			{
 				icon = "magnifying-glass",
-				label = "Inspect Corpse",
+				text = "Inspect Corpse",
 				event = "Hunting:Client:Inspect",
-				distance = 2.0,
-				groups = { "tow", "police" },
-				canInteract = function(data, entity)
+				minDist = 2.0,
+				jobs = { "tow", "police" },
+				jobDuty = true,
+				data = v.ID,
+				isEnabled = function(data, entity)
 					return IsPedDeadOrDying(entity.entity)
 				end,
 			},
-		})
+		}, 3.0)
 	end
 end)
 
 AddEventHandler("Labor:Client:Setup", function()
-	exports["pulsar-core"]:RegisterClientCallback("Hunting:Client:CanShowMap", function(data, cb)
+	plsr.Callbacks:RegisterClientCallback("Hunting:Client:CanShowMap", function(data, cb)
 		if
 			not inMapAnim
-			and not LocalPlayer.state.doingAction
-			and not LocalPlayer.state.isDead
-			and not exports['pulsar-animations']:EmotesGet()
-			and IsPedOnFoot(LocalPlayer.state.ped)
+			and not plsr.State.flags.doingAction
+			and not plsr.State.flags.isDead
+			and not plsr.Animations.Emotes:Get()
+			and IsPedOnFoot(PlayerPedId())
 		then
 			cb(true)
 			StartMapAnim()
@@ -241,84 +244,93 @@ AddEventHandler("Labor:Client:Setup", function()
 	end)
 
 	for k, v in ipairs(_sellers) do
-		exports['pulsar-pedinteraction']:Add(string.format("HideSeller%s", k), v.model, v.coords, v.heading, 25.0, {
+		plsr.PedInteraction:Add(string.format("HideSeller%s", k), v.model, v.coords, v.heading, 25.0, {
 			{
-				icon = "fas fa-cart-shopping",
+				icon = "cart-shopping",
 				text = "Buy Stuff",
-				onSelect = function()
-					TriggerEvent("Vendor:Client:GetItems", { id = "HuntingBaits" })
-				end,
+				event = "Vendor:Client:GetItems",
+				data = {
+					id = "HuntingBaits",
+				},
 				rep = { id = "Hunting", level = 2 },
 			},
 			{
-				icon = "fas fa-sack-dollar",
+				icon = "sack-dollar",
 				text = "Sell Tier 1 Hides",
-				onSelect = function()
-					TriggerEvent("Hunting:Client:Sell", { tier = 1 })
-				end,
+				event = "Hunting:Client:Sell",
+				data = { tier = 1 },
 				rep = { id = "Hunting", level = 4 },
+				isEnabled = function()
+					return true
+				end,
 			},
 			{
-				icon = "fas fa-sack-dollar",
+				icon = "sack-dollar",
 				text = "Sell Tier 2 Hides",
-				onSelect = function()
-					TriggerEvent("Hunting:Client:Sell", { tier = 2 })
-				end,
+				event = "Hunting:Client:Sell",
+				data = { tier = 2 },
 				rep = { id = "Hunting", level = 5 },
+				isEnabled = function()
+					return true
+				end,
 			},
 			{
-				icon = "fas fa-sack-dollar",
+				icon = "sack-dollar",
 				text = "Sell Tier 3 Hides",
-				onSelect = function()
-					TriggerEvent("Hunting:Client:Sell", { tier = 3 })
-				end,
+				event = "Hunting:Client:Sell",
+				data = { tier = 3 },
 				rep = { id = "Hunting", level = 6 },
+				isEnabled = function()
+					return true
+				end,
 			},
 			{
-				icon = "fas fa-sack-dollar",
+				icon = "sack-dollar",
 				text = "Sell Tier 4 Hides",
-				onSelect = function()
-					TriggerEvent("Hunting:Client:Sell", { tier = 4 })
-				end,
+				event = "Hunting:Client:Sell",
+				data = { tier = 4 },
 				rep = { id = "Hunting", level = 7 },
+				isEnabled = function()
+					return true
+				end,
 			},
 		}, "paw", "WORLD_HUMAN_SMOKING")
 	end
 
-	exports['pulsar-pedinteraction']:Add("HuntingJob", `cs_hunter`, _huntingStore, 227.201, 25.0, {
+	plsr.PedInteraction:Add("HuntingJob", `cs_hunter`, _huntingStore, 227.201, 25.0, {
 		{
-			icon = "fas fa-cart-shopping",
+			icon = "cart-shopping",
 			text = "Shop",
 			event = "Hunting:Client:OpenShop",
 		},
 		{
-			icon = "fas fa-ballot-check",
+			icon = "ballot-check",
 			text = "Check In",
 			event = "Hunting:Client:StartJob",
 			tempjob = "Hunting",
-			canInteract = function()
+			isEnabled = function()
 				return not _working
 			end,
 		},
 		{
-			icon = "fas fa-ballot-check",
+			icon = "ballot-check",
 			text = "Finish Job",
 			event = "Hunting:Client:FinishJob",
 			tempjob = "Hunting",
-			canInteract = function()
+			isEnabled = function()
 				return _working and _state == 2
 			end,
 		},
 	}, "deer")
 
-	exports["pulsar-core"]:RegisterClientCallback("Hunting:PlaceTrap", function(item, cb)
+	plsr.Callbacks:RegisterClientCallback("Hunting:PlaceTrap", function(item, cb)
 		if _baited then
 			return cb(false)
 		end
 
-		local dist = #(GetEntityCoords(LocalPlayer.state.ped) - _huntingStore)
+		local dist = #(GetEntityCoords(PlayerPedId()) - _huntingStore)
 		if dist <= 300.0 then
-			exports["pulsar-hud"]:Notification("error", "At Least Stop Being Lazy and Move Away From the Store")
+			plsr.Notification:Error("At Least Stop Being Lazy and Move Away From the Store")
 			return cb(false)
 		end
 
@@ -332,7 +344,7 @@ AddEventHandler("Labor:Client:Setup", function()
 
 		if hit then
 			if gms[materialHash] then
-				exports['pulsar-hud']:Progress({
+				plsr.Progress:Progress({
 					name = "trap-action",
 					duration = (math.random(5) + 10) * 1000,
 					label = "Placing Bait",
@@ -354,11 +366,11 @@ AddEventHandler("Labor:Client:Setup", function()
 					end
 				end)
 			else
-				exports["pulsar-hud"]:Notification("error", "Cannot Place Trap Here")
+				plsr.Notification:Error("Cannot Place Trap Here")
 				cb(false)
 			end
 		else
-			exports["pulsar-hud"]:Notification("error", "Cannot Place Trap Here")
+			plsr.Notification:Error("Cannot Place Trap Here")
 			cb(false)
 		end
 	end)
@@ -368,14 +380,14 @@ RegisterNetEvent("Hunting:Client:OnDuty", function(joiner, time)
 	_joiner = joiner
 	DeleteWaypoint()
 	SetNewWaypoint(_huntingStore.x, _huntingStore.y)
-	_blip = exports["pulsar-blips"]:Add("HuntingStart", "Shop Owner", _huntingStore, 480, 2, 1.4)
+	_blip = plsr.Blips:Add("HuntingStart", "Shop Owner", _huntingStore, 480, 2, 1.4)
 
 	eventHandlers["startup"] = RegisterNetEvent(string.format("Hunting:Client:%s:Startup", joiner), function()
 		_working = true
 		_state = 1
 
 		if _blip ~= nil then
-			exports["pulsar-blips"]:Remove("HuntingStart")
+			plsr.Blips:Remove("HuntingStart")
 			RemoveBlip(_blip)
 		end
 	end)
@@ -383,11 +395,10 @@ RegisterNetEvent("Hunting:Client:OnDuty", function(joiner, time)
 	eventHandlers["finish"] = RegisterNetEvent(string.format("Hunting:Client:%s:Finish", joiner), function()
 		_state = 2
 		if _blip ~= nil then
-			exports["pulsar-blips"]:Remove("HuntingStart")
+			plsr.Blips:Remove("HuntingStart")
 			RemoveBlip(_blip)
 		end
-		_blip = exports["pulsar-blips"]:Add("HuntingStart", "Shop Owner", { x = -676.4336, y = 5840.2813, z = 16.4404 },
-			480, 2, 1.4)
+		_blip = plsr.Blips:Add("HuntingStart", "Shop Owner", { x = -676.4336, y = 5840.2813, z = 16.4404 }, 480, 2, 1.4)
 	end)
 
 	eventHandlers["end"] = RegisterNetEvent(string.format("Hunting:Client:%s:FinishJob", joiner), function()
@@ -396,23 +407,23 @@ RegisterNetEvent("Hunting:Client:OnDuty", function(joiner, time)
 end)
 
 AddEventHandler("Hunting:Client:OpenShop", function()
-	exports.ox_inventory:openInventory("shop", { type = "shop:hunting-supplies" })
+	plsr.Inventory.Shop:Open("hunting-supplies")
 end)
 
-AddEventHandler("Hunting:Client:Sell", function(data)
-	exports["pulsar-core"]:ServerCallback("Hunting:Sell", data.tier)
+AddEventHandler("Hunting:Client:Sell", function(entity, data)
+	plsr.Callbacks:ServerCallback("Hunting:Sell", data.tier)
 end)
 
 AddEventHandler("Hunting:Client:StartJob", function()
-	exports["pulsar-core"]:ServerCallback("Hunting:StartJob", _joiner, function(state)
+	plsr.Callbacks:ServerCallback("Hunting:StartJob", _joiner, function(state)
 		if not state then
-			exports["pulsar-hud"]:Notification("error", "Unable To Start Job")
+			plsr.Notification:Error("Unable To Start Job")
 		end
 	end)
 end)
 
 AddEventHandler("Hunting:Client:FinishJob", function()
-	exports["pulsar-core"]:ServerCallback("Hunting:FinishJob", _joiner, function(state) end)
+	plsr.Callbacks:ServerCallback("Hunting:FinishJob", _joiner, function(state) end)
 end)
 
 AddEventHandler("Hunting:Client:Harvest", function(entity, data)
@@ -420,15 +431,14 @@ AddEventHandler("Hunting:Client:Harvest", function(entity, data)
 		return
 	end
 	DecorSetBool(entity.entity, "BeingHarvested", true)
-	TaskTurnPedToFaceEntity(LocalPlayer.state.ped, entity.entity, -1)
+	TaskTurnPedToFaceEntity(PlayerPedId(), entity.entity, -1)
 
 	if GetPedCauseOfDeath(entity.entity) ~= wepHash then
-		return exports["pulsar-hud"]:Notification("error",
-			"Can't Harvest. This Animal Definitely Wasn't Shot With a Hunting Rifle.")
+		return plsr.Notification:Error("Can't Harvest. This Animal Definitely Wasn't Shot With a Hunting Rifle.")
 	end
 
 	Wait(1000)
-	exports['pulsar-hud']:ProgressWithTickEvent({
+	plsr.Progress:ProgressWithTickEvent({
 		name = "trap-action",
 		duration = 18000,
 		label = "Harvesting",
@@ -445,7 +455,7 @@ AddEventHandler("Hunting:Client:Harvest", function(entity, data)
 		},
 	}, function()
 		if DecorGetBool(entity.entity, "HuntingHarvested") then
-			exports['pulsar-hud']:ProgressCancel()
+			plsr.Progress:Cancel()
 		end
 	end, function(cancelled)
 		if not cancelled and not DecorGetBool(entity.entity, "HuntingHarvested") then
@@ -453,11 +463,11 @@ AddEventHandler("Hunting:Client:Harvest", function(entity, data)
 
 			if _localConfig.Animals[data] ~= nil and _localConfig.Animals[data].Illegal then
 				TriggerServerEvent("EmergencyAlerts:Server:DoPredefined", "illegalHunting")
-				exports['pulsar-status']:Add("PLAYER_STRESS", 10, false, true)
+				plsr.Status.Modify:Add("PLAYER_STRESS", 10, false, true)
 			else
-				exports['pulsar-status']:Add("PLAYER_STRESS", 5, false, true)
+				plsr.Status.Modify:Add("PLAYER_STRESS", 5, false, true)
 			end
-			exports["pulsar-core"]:ServerCallback("Hunting:HarvestAnimal", {
+			plsr.Callbacks:ServerCallback("Hunting:HarvestAnimal", {
 				animal = data,
 				isSpawned = DecorGetBool(entity.entity, "HuntingSpawn")
 			})
@@ -468,9 +478,9 @@ AddEventHandler("Hunting:Client:Harvest", function(entity, data)
 end)
 
 AddEventHandler("Hunting:Client:StartJob", function()
-	-- exports["pulsar-core"]:ServerCallback("Mining:StartJob", _joiner, function(state)
+	-- plsr.Callbacks:ServerCallback("Mining:StartJob", _joiner, function(state)
 	-- 	if not state then
-	-- 		exports["pulsar-hud"]:Notification("error", "Unable To Start Job")
+	-- 		plsr.Notification:Error("Unable To Start Job")
 	-- 	end
 	-- end)
 end)
@@ -481,7 +491,7 @@ RegisterNetEvent("Hunting:Client:OffDuty", function(time)
 	end
 
 	if _blip ~= nil then
-		exports["pulsar-blips"]:Remove("HuntingStart")
+		plsr.Blips:Remove("HuntingStart")
 		RemoveBlip(_blip)
 	end
 
@@ -492,16 +502,16 @@ RegisterNetEvent("Hunting:Client:OffDuty", function(time)
 end)
 
 RegisterNetEvent("Hunting:Client:ShowMap", function(data)
-	if not LocalPlayer.state.loggedIn or LocalPlayer.state.inventoryOpen then
+	if not plsr.State.flags.loggedIn or plsr.State.flags.inventoryOpen then
 		return
 	end
 
-	exports['pulsar-core']:LoggerTrace(
+	plsr.Logger:Trace(
 		"Hunting/Map",
-		string.format("My Source: %s; My Ped: %s; Map Type: %s", LocalPlayer.state.ID, LocalPlayer.state.ped, data.Name)
+		string.format("My Source: %s; My Ped: %s; Map Type: %s", plsr.State.flags.ID, PlayerPedId(), data.Name)
 	)
 
-	exports['pulsar-hud']:OverlayShow(data)
+	plsr.Hud.Overlay:Show(data)
 end)
 
 function StartMapAnim()
@@ -538,7 +548,7 @@ function StartMapAnim()
 	TaskPlayAnim(playerPed, 1.0, -1, -1, 50, 0, 0, 0, 0)
 	TaskPlayAnim(playerPed, "amb@world_human_tourist_map@male@idle_b", "idle_d", 2.0, 8.0, -1, 53, 0, 0, 0, 0)
 
-	-- SetTimeout(11000, function()
+	-- Citizen.SetTimeout(11000, function()
 	-- 	StopMapAnim()
 	-- end)
 end
@@ -547,7 +557,7 @@ function StopMapAnim()
 	if inMapAnim then
 		StopAnimTask(PlayerPedId(), "amb@world_human_tourist_map@male@idle_b", "idle_d", 3.0)
 		DeleteEntity(licenseEntity)
-		exports['pulsar-hud']:OverlayHide()
+		plsr.Hud.Overlay:Hide()
 		inMapAnim = false
 	end
 end

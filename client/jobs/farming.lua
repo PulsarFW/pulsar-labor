@@ -12,32 +12,31 @@ local eventHandlers = {}
 local _nodes = nil
 
 AddEventHandler("Labor:Client:Setup", function()
-	exports['pulsar-pedinteraction']:Add("FarmingJob", `a_m_m_farmer_01`, vector3(2016.165, 4987.541, 41.098), 225.995,
-		25.0, {
-			{
-				icon = "fas fa-wheat-awn",
-				text = "Start Work",
-				event = "Farming:Client:StartJob",
-				tempjob = "Farming",
-				isEnabled = function()
-					return not _working
-				end,
-			},
-			{
-				icon = "fas fa-clipboard-check",
-				text = "Finish Job",
-				event = "Farming:Client:TurnIn",
-				tempjob = "Farming",
-				isEnabled = function()
-					return _working and _tasks == 2
-				end,
-			},
-		}, 'helmet-safety', 'WORLD_HUMAN_CLIPBOARD')
+	plsr.PedInteraction:Add("FarmingJob", `a_m_m_farmer_01`, vector3(2016.165, 4987.541, 41.098), 225.995, 25.0, {
+		{
+			icon = "wheat",
+			text = "Start Work",
+			event = "Farming:Client:StartJob",
+			tempjob = "Farming",
+			isEnabled = function()
+				return not _working
+			end,
+		},
+		{
+			icon = "clipboard-list",
+			text = "Finish Job",
+			event = "Farming:Client:TurnIn",
+			tempjob = "Farming",
+			isEnabled = function()
+				return _working and _tasks == 2
+			end,
+		},
+	}, 'helmet-safety', 'WORLD_HUMAN_CLIPBOARD')
 end)
 
 local _doing = false
 function DoAction(id)
-	exports['pulsar-hud']:ProgressWithTickEvent({
+	plsr.Progress:ProgressWithTickEvent({
 		name = 'farming_action',
 		duration = (math.random(10) + _actionBaseDur) * 1000,
 		label = _actionLabel,
@@ -60,11 +59,11 @@ function DoAction(id)
 				end
 			end
 		end
-		exports['pulsar-hud']:ProgressCancel()
+		plsr.Progress:Cancel()
 	end, function(cancelled)
 		_doing = false
 		if not cancelled then
-			exports["pulsar-core"]:ServerCallback("Farming:CompleteNode", id)
+			plsr.Callbacks:ServerCallback("Farming:CompleteNode", id)
 		end
 	end)
 end
@@ -73,15 +72,14 @@ RegisterNetEvent("Farming:Client:OnDuty", function(joiner, time)
 	_joiner = joiner
 	DeleteWaypoint()
 	SetNewWaypoint(2016.165, 4987.541)
-	_blip = exports["pulsar-blips"]:Add("FarmingStart", "Farm Supervisor", { x = 2016.165, y = 4987.541, z = 0 }, 480, 2,
-		1.4)
+	_blip = plsr.Blips:Add("FarmingStart", "Farm Supervisor", { x = 2016.165, y = 4987.541, z = 0 }, 480, 2, 1.4)
 
-	eventHandlers["keypress"] = AddEventHandler('Keybinds:Client:KeyUp:primary_action', function()
+    eventHandlers["keypress"] = AddEventHandler('Keybinds:Client:KeyUp:primary_action', function()
 		if _doing then return end
 		if _working and not _finished then
 			local closest = nil
 			for k, v in ipairs(_nodes) do
-				local dist = #(vector3(LocalPlayer.state.myPos.x, LocalPlayer.state.myPos.y, LocalPlayer.state.myPos.z) - vector3(v.coords.x, v.coords.y, v.coords.z))
+				local dist = #(vector3(plsr.State.flags.position.x, plsr.State.flags.position.y, plsr.State.flags.position.z) - vector3(v.coords.x, v.coords.y, v.coords.z))
 				if dist <= 2.0 then
 					if closest == nil or dist < closest.dist then
 						closest = {
@@ -94,64 +92,64 @@ RegisterNetEvent("Farming:Client:OnDuty", function(joiner, time)
 
 			if closest ~= nil then
 				_doing = true
-				TaskTurnPedToFaceCoord(LocalPlayer.state.ped, closest.point.coords.x, closest.point.coords.y,
-					closest.point.coords.z, 1.0)
+				TaskTurnPedToFaceCoord(PlayerPedId(), closest.point.coords.x, closest.point.coords.y, closest.point.coords.z, 1.0)
 				Wait(1000)
 				DoAction(closest.point.id)
 			else
 				_doing = false
 			end
 		end
-	end)
+    end)
 
-	eventHandlers["startup"] = RegisterNetEvent(string.format("Farming:Client:%s:Startup", joiner),
-		function(nodes, actionLabel, baseDur, anim)
-			exports["pulsar-blips"]:Remove("FarmingStart")
+	eventHandlers["startup"] = RegisterNetEvent(string.format("Farming:Client:%s:Startup", joiner), function(nodes, actionLabel, baseDur, anim)
+		plsr.Blips:Remove("FarmingStart")
 
-			if _nodes ~= nil then return end
-			_actionLabel = actionLabel
-			_actionBaseDur = baseDur
-			_actionAnim = anim
-			_working = true
-			_tasks = 0
-			_nodes = nodes
+		if _nodes ~= nil then return end
+		_actionLabel = actionLabel
+		_actionBaseDur = baseDur
+		_actionAnim = anim
+		_working = true
+		_tasks = 0
+		_nodes = nodes
 
-			for k, v in ipairs(_nodes) do
-				exports["pulsar-blips"]:Add(string.format("FarmingNode-%s", v.id), "Farming Action", v.coords, 594, 0,
-					0.8)
+		for k, v in ipairs(_nodes) do
+            plsr.Blips:Add(string.format("FarmingNode-%s", v.id), "Farming Action", v.coords, 594, 0, 0.8)
+		end
+
+		CreateThread(function()
+			local showingHarvestAction = false
+			while _working do
+				local closest = nil
+				for k, v in ipairs(_nodes) do
+					local dist = #(vector3(plsr.State.flags.position.x, plsr.State.flags.position.y, plsr.State.flags.position.z) - vector3(v.coords.x, v.coords.y, v.coords.z))
+					if dist <= 2.0 and (closest == nil or dist < closest) then
+						closest = dist
+					end
+				end
+
+				if closest ~= nil then
+					if not showingHarvestAction then
+						plsr.Action:Show("farming", string.format("{keybind}primary_action{/keybind} %s", _actionLabel or "Harvest"))
+						showingHarvestAction = true
+					end
+				elseif showingHarvestAction then
+					plsr.Action:Hide("farming")
+					showingHarvestAction = false
+				end
+
+				Wait(100)
 			end
 
-			CreateThread(function()
-				local _showingHint = false
-				while _working do
-					local nearNode = false
-					for k, v in ipairs(_nodes) do
-						local dist = #(vector3(LocalPlayer.state.myPos.x, LocalPlayer.state.myPos.y, LocalPlayer.state.myPos.z) - vector3(v.coords.x, v.coords.y, v.coords.z))
-						if dist <= 20 then
-							DrawMarker(1, v.coords.x, v.coords.y, v.coords.z, 0, 0, 0, 0, 0, 0, 0.5, 0.5, 1.0, 112, 209,
-								244, 250, false, false, 2, false, false, false, false)
-							if dist <= 2.0 then nearNode = true end
-						end
-					end
-
-					if nearNode and not _showingHint then
-						_showingHint = true
-						exports['pulsar-hud']:ActionShow("farming_hint", string.format("{keybind}primary_action{/keybind} %s", _actionLabel or "Harvest"))
-					elseif not nearNode and _showingHint then
-						_showingHint = false
-						exports['pulsar-hud']:ActionHide("farming_hint")
-					end
-
-					Wait(0)
-				end
-				exports['pulsar-hud']:ActionHide("farming_hint")
-			end)
+			if showingHarvestAction then
+				plsr.Action:Hide("farming")
+			end
 		end)
+	end)
 
 	eventHandlers["actions"] = RegisterNetEvent(string.format("Farming:Client:%s:Action", joiner), function(data)
 		for k, v in ipairs(_nodes) do
 			if v.id == data then
-				exports["pulsar-blips"]:Remove(string.format("FarmingNode-%s", v.id))
+				plsr.Blips:Remove(string.format("FarmingNode-%s", v.id))
 				table.remove(_nodes, k)
 				break
 			end
@@ -161,62 +159,59 @@ RegisterNetEvent("Farming:Client:OnDuty", function(joiner, time)
 	eventHandlers["return"] = RegisterNetEvent(string.format("Farming:Client:%s:EndFarming", joiner), function()
 		_tasks = _tasks + 1
 		_nodes = {}
-		exports['pulsar-hud']:ActionHide("farming_hint")
 		DeleteWaypoint()
 		SetNewWaypoint(2016.165, 4987.541)
-		_blip = exports["pulsar-blips"]:Add("FarmingStart", "Farm Supervisor", { x = 2016.165, y = 4987.541, z = 0 },
-			480, 2, 1.4)
+		_blip = plsr.Blips:Add("FarmingStart", "Farm Supervisor", { x = 2016.165, y = 4987.541, z = 0 }, 480, 2, 1.4)
 	end)
 
-	eventHandlers["new-task"] = RegisterNetEvent(string.format("Farming:Client:%s:NewTask", joiner),
-		function(nodes, actionLabel, baseDur, anim)
-			exports["pulsar-blips"]:Remove("FarmingStart")
+	eventHandlers["new-task"] = RegisterNetEvent(string.format("Farming:Client:%s:NewTask", joiner), function(nodes, actionLabel, baseDur, anim)
+		plsr.Blips:Remove("FarmingStart")
 
-			if #_nodes ~= 0 then
-				for k, v in ipairs(_nodes) do
-					exports["pulsar-blips"]:Remove(string.format("FarmingNode-%s", v.id))
-				end
-			end
-
-			_actionLabel = actionLabel
-			_actionBaseDur = baseDur
-			_actionAnim = anim
-			_nodes = nodes
-			_tasks = _tasks + 1
-
+		if #_nodes ~= 0 then
 			for k, v in ipairs(_nodes) do
-				exports["pulsar-blips"]:Add(string.format("FarmingNode-%s", v.id), "Farming Action", v.coords, 594, 0,
-					0.8)
+				plsr.Blips:Remove(string.format("FarmingNode-%s", v.id))
 			end
-		end)
-end)
+		end
 
-AddEventHandler("Farming:Client:TurnIn", function()
-	exports["pulsar-core"]:ServerCallback('Farming:TurnIn', _joiner)
-end)
+		_actionLabel = actionLabel
+		_actionBaseDur = baseDur
+		_actionAnim = anim
+		_nodes = nodes
+		_tasks = _tasks + 1
 
-AddEventHandler("Farming:Client:StartJob", function()
-	exports["pulsar-core"]:ServerCallback('Farming:StartJob', _joiner, function(state)
-		if not state then
-			exports["pulsar-hud"]:Notification("error", "Unable To Start Job")
+		for k, v in ipairs(_nodes) do
+            plsr.Blips:Add(string.format("FarmingNode-%s", v.id), "Farming Action", v.coords, 594, 0, 0.8)
 		end
 	end)
 end)
 
+AddEventHandler("Farming:Client:TurnIn", function()
+    plsr.Callbacks:ServerCallback('Farming:TurnIn', _joiner)
+end)
+
+AddEventHandler("Farming:Client:StartJob", function()
+    plsr.Callbacks:ServerCallback('Farming:StartJob', _joiner, function(state)
+		if not state then
+			plsr.Notification:Error("Unable To Start Job")
+		end
+    end)
+end)
+
 RegisterNetEvent("Farming:Client:OffDuty", function(time)
-	exports['pulsar-hud']:ActionHide("farming_hint")
 	for k, v in pairs(eventHandlers) do
 		RemoveEventHandler(v)
 	end
 
+	plsr.Action:Hide("farming")
+
 	if _nodes ~= nil then
 		for k, v in ipairs(_nodes) do
-			exports["pulsar-blips"]:Remove(string.format("FarmingNode-%s", v.id))
+			plsr.Blips:Remove(string.format("FarmingNode-%s", v.id))
 		end
 	end
 
 	if _blip ~= nil then
-		exports["pulsar-blips"]:Remove("FarmingStart")
+		plsr.Blips:Remove("FarmingStart")
 	end
 
 	_joiner = nil

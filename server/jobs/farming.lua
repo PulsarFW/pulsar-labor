@@ -4,7 +4,7 @@ local _joiners = {}
 local _farming = {}
 
 AddEventHandler("Labor:Server:Startup", function()
-	exports["pulsar-core"]:RegisterServerCallback("Farming:StartJob", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Farming:StartJob", function(source, data, cb)
 		if _farming[data] ~= nil and _farming[data].state == 0 then
 			local randJob = math.random(#availableJobs)
 
@@ -17,8 +17,8 @@ AddEventHandler("Labor:Server:Startup", function()
 			table.remove(_farming[data].jobs, randJob)
 			_farming[data].job.locationSets = nil
 
-			exports['pulsar-labor']:StartOffer(data, _JOB, _farming[data].job.objective, #_farming[data].nodes)
-			exports['pulsar-labor']:SendWorkgroupEvent(
+			plsr.Labor.Offers:Start(data, _JOB, _farming[data].job.objective, #_farming[data].nodes)
+			plsr.Labor.Workgroups:SendEvent(
 				data,
 				string.format("Farming:Client:%s:Startup", data),
 				_farming[data].nodes,
@@ -34,20 +34,19 @@ AddEventHandler("Labor:Server:Startup", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Farming:CompleteNode", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Farming:CompleteNode", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char:GetData("TempJob") == _JOB and _joiners[source] ~= nil and _farming[_joiners[source]] ~= nil then
 			for k, v in ipairs(_farming[_joiners[source]].nodes) do
 				if v.id == data then
-					exports.ox_inventory:LootCustomSetWithCount(_farming[_joiners[source]].job.loot,
-						char:GetData("SID"), 1)
-					exports['pulsar-labor']:SendWorkgroupEvent(
+					plsr.Loot:CustomSetWithCount(_farming[_joiners[source]].job.loot, char:GetData("SID"), 1)
+					plsr.Labor.Workgroups:SendEvent(
 						_joiners[source],
 						string.format("Farming:Client:%s:Action", _joiners[source]),
 						data
 					)
 					table.remove(_farming[_joiners[source]].nodes, k)
-					if exports['pulsar-labor']:UpdateOffer(_joiners[source], _JOB, 1, true) then
+					if plsr.Labor.Offers:Update(_joiners[source], _JOB, 1, true) then
 						_farming[_joiners[source]].tasks = _farming[_joiners[source]].tasks + 1
 
 						if _farming[_joiners[source]].tasks < 2 then
@@ -60,13 +59,13 @@ AddEventHandler("Labor:Server:Startup", function()
 							)
 							table.remove(_farming[_joiners[source]].jobs, randJob)
 							_farming[_joiners[source]].job.locationSets = nil
-							exports['pulsar-labor']:StartOffer(
+							plsr.Labor.Offers:Start(
 								_joiners[source],
 								_JOB,
 								_farming[_joiners[source]].job.objective,
 								#_farming[_joiners[source]].nodes
 							)
-							exports['pulsar-labor']:SendWorkgroupEvent(
+							plsr.Labor.Workgroups:SendEvent(
 								_joiners[source],
 								string.format("Farming:Client:%s:NewTask", _joiners[source]),
 								_farming[_joiners[source]].nodes,
@@ -75,12 +74,12 @@ AddEventHandler("Labor:Server:Startup", function()
 								_farming[_joiners[source]].job.animation
 							)
 						else
-							exports['pulsar-labor']:SendWorkgroupEvent(
+							plsr.Labor.Workgroups:SendEvent(
 								_joiners[source],
 								string.format("Farming:Client:%s:EndFarming", _joiners[source])
 							)
 							_farming[_joiners[source]].state = 2
-							exports['pulsar-labor']:TaskOffer(_joiners[source], _JOB, "Return To The Farm Supervisor")
+							plsr.Labor.Offers:Task(_joiners[source], _JOB, "Return To The Farm Supervisor")
 						end
 					end
 					return
@@ -89,8 +88,8 @@ AddEventHandler("Labor:Server:Startup", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Farming:TurnIn", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Farming:TurnIn", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if
 			char:GetData("TempJob") == _JOB
 			and _joiners[source] ~= nil
@@ -99,10 +98,10 @@ AddEventHandler("Labor:Server:Startup", function()
 		then
 			_farming[_joiners[source]].state = 3
 
-			exports['pulsar-labor']:ManualFinishOffer(_joiners[source], _JOB)
+			plsr.Labor.Offers:ManualFinish(_joiners[source], _JOB)
 			cb(true)
 		else
-			exports['pulsar-hud']:Notification(source, "error", "Unable To Turn In Farm")
+			plsr.Execute:Client(source, "Notification", "Error", "Unable To Turn In Ore")
 			cb(false)
 		end
 	end)
@@ -117,21 +116,19 @@ AddEventHandler("Farming:Server:OnDuty", function(joiner, members, isWorkgroup)
 		state = 0,
 	}
 
-	local char = exports['pulsar-characters']:FetchCharacterSource(joiner)
+	local char = plsr.Fetch:CharacterSource(joiner)
 	char:SetData("TempJob", _JOB)
-	exports['pulsar-phone']:NotificationAdd(joiner, "Job Activity", "You started a job", os.time(), 6000, "labor",
-		{})
+	plsr.Phone.Notification:Add(joiner, "Job Activity", "You started a job", os.time(), 6000, "labor", {})
 	TriggerClientEvent("Farming:Client:OnDuty", joiner, joiner, os.time())
 
-	exports['pulsar-labor']:TaskOffer(joiner, _JOB, "Speak With The Farm Supervisor")
+	plsr.Labor.Offers:Task(joiner, _JOB, "Speak With The Farm Supervisor")
 	if #members > 0 then
 		for k, v in ipairs(members) do
 			_joiners[v.ID] = joiner
-
-			local member = exports['pulsar-characters']:FetchCharacterSource(v.ID)
+			
+			local member = plsr.Fetch:CharacterSource(v.ID)
 			member:SetData("TempJob", _JOB)
-			exports['pulsar-phone']:NotificationAdd(v.ID, "Job Activity", "You started a job", os.time(), 6000,
-				"labor", {})
+			plsr.Phone.Notification:Add(v.ID, "Job Activity", "You started a job", os.time(), 6000, "labor", {})
 			TriggerClientEvent("Farming:Client:OnDuty", v.ID, joiner, os.time())
 		end
 	end

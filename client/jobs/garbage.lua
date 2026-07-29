@@ -60,55 +60,57 @@ loadAnimDict = function(dict)
 	end
 end
 AddEventHandler("Labor:Client:Setup", function()
-	exports['pulsar-pedinteraction']:Add("GarbageJob", GetHashKey("s_m_y_garbage"), vector3(-348.940, -1570.224, 24.228),
-		340.561, 25.0, {
-			{
-				icon = "fas fa-trash-can",
-				text = "Start Work",
-				event = "Garbage:Client:StartJob",
-				tempjob = "Garbage",
-				isEnabled = function()
-					return not _working
-				end,
-			},
-			{
-				icon = "fas fa-truck",
-				text = "Borrow Garbage Truck",
-				event = "Garbage:Client:GarbageSpawn",
-				tempjob = "Garbage",
-				isEnabled = function()
-					return _working and _state == 1
-				end,
-			},
-			{
-				icon = "fas fa-truck",
-				text = "Return Garbage Truck",
-				event = "Garbage:Client:GarbageSpawnRemove",
-				tempjob = "Garbage",
-				isEnabled = function()
-					return _working and _state == 3
-				end,
-			},
-			{
-				icon = "fas fa-check",
-				text = "Complete Job",
-				event = "Garbage:Client:TurnIn",
-				tempjob = "Garbage",
-				isEnabled = function()
-					return _working and _state == 4
-				end,
-			},
-		}, "trash")
+	plsr.State.flags.inGarbagbeZone = false
+	plsr.State.flags.carryingGarbabge = false
 
-	exports["pulsar-core"]:RegisterClientCallback("Garbage:DoingSomeAction", function(item, cb)
+	plsr.PedInteraction:Add("GarbageJob", GetHashKey("s_m_y_garbage"), vector3(-348.940, -1570.224, 24.228), 340.561, 25.0, {
+		{
+			icon = "trash",
+			text = "Start Work",
+			event = "Garbage:Client:StartJob",
+			tempjob = "Garbage",
+			isEnabled = function()
+				return not _working
+			end,
+		},
+		{
+			icon = "handshake-angle",
+			text = "Borrow Garbage Truck",
+			event = "Garbage:Client:GarbageSpawn",
+			tempjob = "Garbage",
+			isEnabled = function()
+				return _working and _state == 1
+			end,
+		},
+		{
+			icon = "handshake-angle",
+			text = "Return Garbage Truck",
+			event = "Garbage:Client:GarbageSpawnRemove",
+			tempjob = "Garbage",
+			isEnabled = function()
+				return _working and _state == 3
+			end,
+		},
+		{
+			icon = "handshake-angle",
+			text = "Complete Job",
+			event = "Garbage:Client:TurnIn",
+			tempjob = "Garbage",
+			isEnabled = function()
+				return _working and _state == 4
+			end,
+		},
+	}, "trash")
+
+	plsr.Callbacks:RegisterClientCallback("Garbage:DoingSomeAction", function(item, cb)
 		local ped = PlayerPedId()
 		if item == "grabTrash" then
-			exports['pulsar-animations']:EmotesPlay("garbage", false, nil, true)
+			plsr.Animations.Emotes:Play("garbage", false, nil, true)
 		else
 			if item == "trashPutIn" then
-				exports['pulsar-animations']:EmotesPlay("garbagethrow", false, nil, true)
+				plsr.Animations.Emotes:Play("garbagethrow", false, nil, true)
 				SetTimeout(1250, function()
-					exports['pulsar-animations']:EmotesForceCancel()
+					plsr.Animations.Emotes:ForceCancel()
 					GarbageObject = nil
 				end)
 			end
@@ -121,53 +123,39 @@ RegisterNetEvent("Garbage:Client:OnDuty", function(joiner, time)
 	DeleteWaypoint()
 	SetNewWaypoint(-348.940, -1570.224)
 
-	_blip = exports["pulsar-blips"]:Add("GarbageStart", "Sanitation Foreman", { x = -348.940, y = -1570.224, z = 0 },
-		480, 2, 1.4)
+	_blip = plsr.Blips:Add("GarbageStart", "Sanitation Foreman", { x = -348.940, y = -1570.224, z = 0 }, 480, 2, 1.4)
 
 	eventHandlers["startup"] = RegisterNetEvent(string.format("Garbage:Client:%s:Startup", joiner), function()
 		_working = true
 		_state = 1
-		CreateThread(function()
-			while _working do
-				local playerCoords = GetEntityCoords(PlayerPedId())
-				for k, v in ipairs(trashBins) do
-					local obj = GetClosestObjectOfType(playerCoords.x, playerCoords.y, playerCoords.z, 50.0, v, false,
-						false, false)
-					if obj and obj ~= 0 then
-						if not _entities[obj] then
-							exports.ox_target:addLocalEntity(obj, {
-								{
-									icon = "fas fa-trash-can",
-									label = "Pick Up Trash",
-									event = "Garbage:Client:TrashGrab",
-									distance = 3.0,
-									canInteract = function(entity)
-										return LocalPlayer.state.inGarbagbeZone
-											and GarbageObject == nil
-											and _state == 2
-											and _entities[entity] ~= "grabbed"
-									end,
-								},
-							})
-							_entities[obj] = true
-						end
-					end
-				end
-				Wait(2000)
-			end
-		end)
+		for k, v in ipairs(trashBins) do
+			plsr.Targeting:AddObject(v, "trash", {
+				{
+					icon = "trash",
+					text = "Grab Trash",
+					event = "Garbage:Client:TrashGrab",
+					data = "Garbage",
+					isEnabled = function(data, entity)
+						return not _entities[ObjToNet(entity.entity)]
+							and plsr.State.flags.inGarbagbeZone
+							and GarbageObject == nil
+							and _state == 2
+					end,
+				},
+			}, 3.0)
+		end
 
 		CreateThread(function()
 			while _working do
 				if _route ~= nil then
 					local dist = #(
-						vector3(LocalPlayer.state.myPos.x, LocalPlayer.state.myPos.y, LocalPlayer.state.myPos.z)
+						vector3(plsr.State.flags.position.x, plsr.State.flags.position.y, plsr.State.flags.position.z)
 						- vector3(_route.coords.x, _route.coords.y, _route.coords.z)
 					)
 					if dist <= (_route.radius / 2) then
-						LocalPlayer.state.inGarbagbeZone = true
+						plsr.State.flags.inGarbagbeZone = true
 					else
-						LocalPlayer.state.inGarbagbeZone = false
+						plsr.State.flags.inGarbagbeZone = false
 					end
 				end
 				Wait(1000)
@@ -182,7 +170,7 @@ RegisterNetEvent("Garbage:Client:OnDuty", function(joiner, time)
 		SetNewWaypoint(_route.coords)
 
 		if _blip ~= nil then
-			exports["pulsar-blips"]:Remove("GarbageStart")
+			plsr.Blips:Remove("GarbageStart")
 			RemoveBlip(_blip)
 			_blip = nil
 		end
@@ -199,12 +187,11 @@ RegisterNetEvent("Garbage:Client:OnDuty", function(joiner, time)
 		DeleteWaypoint()
 		SetNewWaypoint(-334.989, -1562.966)
 		if _blip ~= nil then
-			exports["pulsar-blips"]:Remove("GarbageStart")
+			plsr.Blips:Remove("GarbageStart")
 			RemoveBlip(_blip)
 			_blip = nil
 		end
-		_blip = exports["pulsar-blips"]:Add("GarbageStart", "Sanitation Foreman", { x = -348.940, y = -1570.224, z = 0 },
-			480, 2, 1.4)
+		_blip = plsr.Blips:Add("GarbageStart", "Sanitation Foreman", { x = -348.940, y = -1570.224, z = 0 }, 480, 2, 1.4)
 		_state = 3
 	end)
 
@@ -215,27 +202,25 @@ RegisterNetEvent("Garbage:Client:OnDuty", function(joiner, time)
 			GarbageObject = nil
 		end
 
-		local ent = entity.entity
-		exports["pulsar-core"]:ServerCallback("Garbage:TrashGrab", ObjToNet(ent), function(s)
+		plsr.Callbacks:ServerCallback("Garbage:TrashGrab", ObjToNet(entity.entity), function(s)
 			if s then
-				LocalPlayer.state.carryingGarbabge = true
-				_entities[ent] = "grabbed"
+				plsr.State.flags.carryingGarbabge = true
 			end
 		end)
 	end)
 
 	eventHandlers["toss-gabrage"] = AddEventHandler("Garbage:Client:TossBag", function()
-		exports["pulsar-core"]:ServerCallback("Garbage:TrashPutIn", {}, function(s)
+		plsr.Callbacks:ServerCallback("Garbage:TrashPutIn", {}, function(s)
 			if s then
-				LocalPlayer.state.carryingGarbabge = false
+				plsr.State.flags.carryingGarbabge = false
 			end
 		end)
 	end)
 
 	eventHandlers["spawn-truck"] = AddEventHandler("Garbage:Client:GarbageSpawn", function()
-		exports["pulsar-core"]:ServerCallback("Garbage:GarbageSpawn", {}, function(netId)
+		plsr.Callbacks:ServerCallback("Garbage:GarbageSpawn", {}, function(netId)
 			if netId == false then
-				exports["pulsar-hud"]:Notification("error", "Attempting to spawn garbage truck you pepega.")
+				plsr.Notification:Error("Attempting to spawn garbage truck you pepega.")
 				return
 			end
 			SetEntityAsMissionEntity(NetToVeh(netId))
@@ -243,7 +228,7 @@ RegisterNetEvent("Garbage:Client:OnDuty", function(joiner, time)
 	end)
 
 	eventHandlers["despawn-truck"] = AddEventHandler("Garbage:Client:GarbageSpawnRemove", function()
-		exports["pulsar-core"]:ServerCallback("Garbage:GarbageSpawnRemove", {})
+		plsr.Callbacks:ServerCallback("Garbage:GarbageSpawnRemove", {})
 	end)
 
 	eventHandlers["return-truck"] = RegisterNetEvent(string.format("Garbage:Client:%s:ReturnTruck", joiner), function()
@@ -251,24 +236,24 @@ RegisterNetEvent("Garbage:Client:OnDuty", function(joiner, time)
 	end)
 
 	eventHandlers["turn-in"] = AddEventHandler("Garbage:Client:TurnIn", function()
-		exports["pulsar-core"]:ServerCallback("Garbage:TurnIn", _joiner)
+		plsr.Callbacks:ServerCallback("Garbage:TurnIn", _joiner)
 	end)
 end)
 
 AddEventHandler("Garbage:Client:StartJob", function()
-	exports["pulsar-core"]:ServerCallback("Garbage:StartJob", _joiner, function(state)
+	plsr.Callbacks:ServerCallback("Garbage:StartJob", _joiner, function(state)
 		if not state then
-			exports["pulsar-hud"]:Notification("error", "Unable To Start Job")
+			plsr.Notification:Error("Unable To Start Job")
 		end
 	end)
 end)
 
 AddEventHandler("Garbage:Client:Buy", function()
-	exports["pulsar-core"]:ServerCallback("Gabage:Pawn:Buy", {}, function(items)
+	plsr.Callbacks:ServerCallback("Gabage:Pawn:Buy", {}, function(items)
 		local itemList = {}
 
 		for k, v in ipairs(items) do
-			local itemData = exports.ox_inventory:ItemsGetData(v.item)
+			local itemData = plsr.Inventory.Items:GetData(v.item)
 			if v.qty > 0 then
 				table.insert(itemList, {
 					label = itemData.label,
@@ -287,7 +272,7 @@ AddEventHandler("Garbage:Client:Buy", function()
 			end
 		end
 
-		exports['pulsar-hud']:ListMenuShow({
+		plsr.ListMenu:Show({
 			main = {
 				label = "Pawn Shop",
 				items = itemList,
@@ -297,7 +282,7 @@ AddEventHandler("Garbage:Client:Buy", function()
 end)
 
 AddEventHandler("Garbage:Client:Pawn:BuyLimited", function(data)
-	exports["pulsar-core"]:ServerCallback("Garbage:Pawn:BuyLimited", data)
+	plsr.Callbacks:ServerCallback("Garbage:Pawn:BuyLimited", data)
 end)
 
 RegisterNetEvent("Garbage:Client:OffDuty", function(time)
@@ -305,22 +290,20 @@ RegisterNetEvent("Garbage:Client:OffDuty", function(time)
 		RemoveEventHandler(v)
 	end
 
-	for entity, state in pairs(_entities) do
-		if type(entity) == "number" and state ~= "grabbed" then
-			exports.ox_target:removeLocalEntity(entity)
-		end
+	for k, v in ipairs(trashBins) do
+		plsr.Targeting:RemoveObject(v)
 	end
 
 	if _blip ~= nil then
-		exports["pulsar-blips"]:Remove("GarbageStart")
+		plsr.Blips:Remove("GarbageStart")
 		RemoveBlip(_blip)
 		_blip = nil
 	end
 
-	if LocalPlayer.state.carryingGarbabge or GarbageObject ~= nil then
+	if plsr.State.flags.carryingGarbabge or GarbageObject ~= nil then
 		DetachEntity(GarbageObject, 1, false)
 		DeleteObject(GarbageObject)
-		LocalPlayer.state.carryingGarbabge = false
+		plsr.State.flags.carryingGarbabge = false
 	end
 
 	eventHandlers = {}
@@ -329,6 +312,6 @@ RegisterNetEvent("Garbage:Client:OffDuty", function(time)
 	_route = nil
 	GarbageObject = nil
 	_state = 0
-	LocalPlayer.state.inGarbagbeZone = false
+	plsr.State.flags.inGarbagbeZone = false
 	TriggerEvent("Labor:Dumpster:RegisterDumpsters")
 end)

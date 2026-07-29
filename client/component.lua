@@ -1,8 +1,5 @@
-AddEventHandler('onClientResourceStart', function(resource)
-	if resource == GetCurrentResourceName() then
-		Wait(1000)
-		TriggerEvent("Labor:Client:Setup")
-	end
+CreateThread(function()
+	TriggerEvent("Labor:Client:Setup")
 end)
 
 function Draw3DText(x, y, z, text)
@@ -30,34 +27,40 @@ function PedFaceCoord(pPed, pCoords)
 	end
 end
 
+AddEventHandler("Proxy:Shared:RegisterReady", function()
+	exports["pulsar_core"]:RegisterComponent("Labor", LABOR)
+end)
+
 AddEventHandler("Labor:Client:AcceptRequest", function(data)
-	exports["pulsar-core"]:ServerCallback("Labor:AcceptRequest", data)
+	plsr.Callbacks:ServerCallback("Labor:AcceptRequest", data)
 end)
 
 AddEventHandler("Labor:Client:DeclineRequest", function(data)
-	exports["pulsar-core"]:ServerCallback("Labor:DeclineRequest", data)
+	plsr.Callbacks:ServerCallback("Labor:DeclineRequest", data)
 end)
 
-exports('GetJobs', function()
-	local p = promise.new()
-	exports["pulsar-core"]:ServerCallback("Labor:GetJobs", {}, function(jobs)
-		p:resolve(jobs)
-	end)
-	return Citizen.Await(p)
-end)
-
-exports('GetGroups', function()
-	local p = promise.new()
-	exports["pulsar-core"]:ServerCallback("Labor:GetGroups", {}, function(groups)
-		p:resolve(groups)
-	end)
-	return Citizen.Await(p)
-end)
-
-exports('GetReputations', function()
-	local p = promise.new()
-	exports["pulsar-core"]:ServerCallback("Labor:GetReputations", {}, function(jobs)
-		p:resolve(jobs)
-	end)
-	return Citizen.Await(p)
-end)
+LABOR = {
+	Get = {
+		Jobs = function(self)
+			local p = promise.new()
+			plsr.Callbacks:ServerCallback("Labor:GetJobs", {}, function(jobs)
+				p:resolve(jobs)
+			end)
+			return Citizen.Await(p)
+		end,
+		Groups = function(self)
+			local p = promise.new()
+			plsr.Callbacks:ServerCallback("Labor:GetGroups", {}, function(groups)
+				p:resolve(groups)
+			end)
+			return Citizen.Await(p)
+		end,
+		Reputations = function(self)
+			local p = promise.new()
+			plsr.Callbacks:ServerCallback("Labor:GetReputations", {}, function(jobs)
+				p:resolve(jobs)
+			end)
+			return Citizen.Await(p)
+		end,
+	},
+}

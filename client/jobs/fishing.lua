@@ -45,7 +45,7 @@ local basicFish = {
 }
 
 AddEventHandler("Labor:Client:Setup", function()
-    exports['pulsar-polyzone']:CreatePoly("fishing_river_zancudo", {
+	plsr.Polyzone.Create:Poly("fishing_river_zancudo", {
         vector2(156.34146118164, 3416.5373535156),
         vector2(128.61988830566, 3429.1630859375),
         vector2(-4.1847929954529, 3131.1550292969),
@@ -85,9 +85,9 @@ AddEventHandler("Labor:Client:Setup", function()
         vector2(-208.30116271973, 2946.1721191406),
         vector2(-43.203388214111, 3078.1962890625),
         vector2(101.15602111816, 3113.7119140625)
-    }, {}, { fishing_river = 2 })
+	}, {}, { fishing_river = 2 })
 
-    exports['pulsar-polyzone']:CreatePoly("fishing_river_raton", {
+    plsr.Polyzone.Create:Poly("fishing_river_raton", {
         vector2(-181.28651428223, 4224.3120117188),
         --vector2(-449.234, 4569.082),
         vector2(-140.56726074219, 4259.6186523438),
@@ -109,9 +109,9 @@ AddEventHandler("Labor:Client:Setup", function()
         vector2(-425.33764648438, 4378.6943359375),
         vector2(-352.85482788086, 4384.9453125),
         vector2(-279.20379638672, 4260.0610351562),
-    }, {}, { fishing_river = 3 })
+	}, {}, { fishing_river = 3 })
 
-    exports['pulsar-polyzone']:CreatePoly("fishing_ocean_shitty1", {
+    plsr.Polyzone.Create:Poly("fishing_ocean_shitty1", {
         vector2(-1837.213, -965.995),
         vector2(-1276.9390869141, -1926.0460205078),
         vector2(-688.33306884766, -2526.37109375),
@@ -126,23 +126,23 @@ AddEventHandler("Labor:Client:Setup", function()
         vector2(708.54425048828, -1641.7926025391),
         vector2(-735.48138427734, -1294.2583007812),
         vector2(-1663.170, -794.495),
-    }, {}, {
+	}, {}, {
         fishing_shitty_ocean_water = true,
     })
 
-    exports['pulsar-polyzone']:CreateCircle("fishing_ocean_shitty2", vector3(-2216.9, 2559.83, 66.16), 519.25, {}, {
+    plsr.Polyzone.Create:Circle("fishing_ocean_shitty2", vector3(-2216.9, 2559.83, 66.16), 519.25, {}, {
         fishing_shitty_ocean_water = true,
     })
 
-    exports['pulsar-polyzone']:CreateCircle("fishing_ocean_shitty3", vector3(-1796.15, -1182.05, 13.01), 95, {}, {
+    plsr.Polyzone.Create:Circle("fishing_ocean_shitty3", vector3(-1796.15, -1182.05, 13.01), 95, {}, {
         fishing_shitty_ocean_water = true,
     })
 
-    exports['pulsar-polyzone']:CreateCircle("fishing_ocean_shitty4", vector3(-3374.96, 968.46, 8.29), 69.0, {}, {
+    plsr.Polyzone.Create:Circle("fishing_ocean_shitty4", vector3(-3374.96, 968.46, 8.29), 69.0, {}, {
         fishing_shitty_ocean_water = true,
     })
 
-    exports['pulsar-polyzone']:CreatePoly("fishing_deep_ocean_water", {
+    plsr.Polyzone.Create:Poly("fishing_deep_ocean_water", {
         vector2(-1010.61, -4428.79),
         vector2(-2950.00, -3386.36),
         vector2(-3046.97, -1956.06),
@@ -173,68 +173,65 @@ AddEventHandler("Labor:Client:Setup", function()
         vector2(2940.91, -3125.76),
         vector2(2031.82, -3756.06),
         vector2(1256.06, -4095.45)
-    }, {})
+	}, {})
 
     local shopData = {
         {
             icon = "cart-shopping",
             text = "Shop",
-            onSelect = function()
-                TriggerEvent("Fishing:Client:OpenShop", { type = "shop:fishing-supplies" })
-            end,
+            event = "Fishing:Client:OpenShop",
+            data = "fishing-supplies",
             isEnabled = function()
-                return exports['pulsar-characters']:RepGetLevel("Fishing") < 3
+                return plsr.Reputation:GetLevel("Fishing") < 3
             end,
         },
         {
             icon = "cart-shopping",
             text = "Advanced Shop",
-            onSelect = function()
-                TriggerEvent("Fishing:Client:OpenShop", { type = "shop:fishing-supplies-advanced" })
-            end,
+            event = "Fishing:Client:OpenShop",
+            data = "fishing-supplies-advanced",
             rep = {
-                id = "Fishing",
-                level = 3,
-            },
+				id = "Fishing",
+				level = 3,
+			},
         },
     }
 
     Wait(2000)
 
     for k, v in ipairs(basicFish) do
-        local fishData = exports.ox_inventory:ItemsGetData(v)
+        local fishData = plsr.Inventory.Items:GetData(v)
 
         if fishData then
             table.insert(shopData, {
-                icon = "sack-dollar",
-                text = string.format("Sell %s ($%s)", fishData.label, fishData.price),
-                onSelect = function()
-                    TriggerEvent("Fishing:Client:Sell", v)
-                end,
-                --rep = { id = "Hunting", level = 0 },
-            })
+				icon = "sack-dollar",
+				text = string.format("Sell %s ($%s)", fishData.label, fishData.price),
+				event = "Fishing:Client:Sell",
+				data = { fish = v },
+				--rep = { id = "Hunting", level = 0 },
+				isEnabled = function()
+					return true
+				end,
+			})
         end
     end
 
     for k, v in ipairs(fishingStores) do
-        exports['pulsar-pedinteraction']:Add(string.format("FishingJob%s", k), `a_m_m_hillbilly_01`, v.coords, v
-            .heading, 25.0, shopData,
-            "fishing-rod")
+        plsr.PedInteraction:Add(string.format("FishingJob%s", k), `a_m_m_hillbilly_01`, v.coords, v.heading, 25.0, shopData, "fish-fins")
     end
 end)
 
 -- Returns if they can fish and what zone they are in
 function CanFishHere()
-    local offsetCoords = GetOffsetFromEntityInWorldCoords(LocalPlayer.state.ped, 0.0, 1.5, 0.75)
-    local result, hittingCoord = TestProbeAgainstAllWater(offsetCoords.x, offsetCoords.y, offsetCoords.z + 1.0,
-        offsetCoords.x, offsetCoords.y, offsetCoords.z - 35.0, 19)
+    local offsetCoords = GetOffsetFromEntityInWorldCoords(PlayerPedId(), 0.0, 1.5, 0.75)
+    local result, hittingCoord = TestProbeAgainstAllWater(offsetCoords.x, offsetCoords.y, offsetCoords.z + 1.0, offsetCoords.x, offsetCoords.y, offsetCoords.z - 35.0, 19)
     if result == 1 then
         local result2, height = GetWaterHeightNoWaves(hittingCoord.x, hittingCoord.y, hittingCoord.z)
         if result2 then
             if height <= 0.5 then
-                if exports['pulsar-polyzone']:IsCoordsInZone(offsetCoords, false, "fishing_shitty_ocean_water") then
+                if plsr.Polyzone:IsCoordsInZone(offsetCoords, false, "fishing_shitty_ocean_water") then
                     return 4
-                elseif exports['pulsar-polyzone']:IsCoordsInZone(offsetCoords, "fishing_deep_ocean_water") then
+                elseif plsr.Polyzone:IsCoordsInZone(offsetCoords, "fishing_deep_ocean_water") then
                     return 5
                 else
                     return 6
@@ -243,7 +240,7 @@ function CanFishHere()
                 return 1
             end
         else
-            local inRiverZone = exports['pulsar-polyzone']:IsCoordsInZone(offsetCoords, false, "fishing_river")
+            local inRiverZone = plsr.Polyzone:IsCoordsInZone(offsetCoords, false, "fishing_river")
             if inRiverZone and inRiverZone.fishing_river then
                 return inRiverZone.fishing_river
             end
@@ -254,25 +251,25 @@ end
 
 RegisterNetEvent("Fishing:Client:StartFishing", function(toolUsed)
     local fishingZone = CanFishHere()
-    local fishingLocation = GetEntityCoords(LocalPlayer.state.ped)
+    local fishingLocation = GetEntityCoords(PlayerPedId())
 
     if _isFishing then
-        exports["pulsar-hud"]:Notification("error", "Already Fishing")
+        plsr.Notification:Error("Already Fishing")
         return
     end
 
     if not fishingZone then
-        exports["pulsar-hud"]:Notification("error", "Cannot Fish Here")
+        plsr.Notification:Error("Cannot Fish Here")
         return
     end
 
-    if LocalPlayer.state.doingAction then
-        exports["pulsar-hud"]:Notification("error", "Already Doing Something")
+    if plsr.State.flags.doingAction then
+        plsr.Notification:Error("Already Doing Something")
         return
     end
 
     if toolUsed == "net" and not IsNearBoat() then
-        exports["pulsar-hud"]:Notification("error", "Have to Use a Fishing Net on a Boat")
+        plsr.Notification:Error("Have to Use a Fishing Net on a Boat")
         return
     end
 
@@ -287,20 +284,9 @@ RegisterNetEvent("Fishing:Client:StartFishing", function(toolUsed)
     end
 
     if fishingZone == 4 or fishingZone == 5 then
-        exports["pulsar-hud"]:Notification("info",
-            string.format("Fishing - Press %s to Stop. Maybe you could try some deeper water for better fish!",
-                exports["pulsar-kbs"]:GetKey("cancel_action")),
-            -1,
-            "fishing-rod",
-            nil,
-            "fishing-info-notif")
+        plsr.Notification.Persistent:Info("fishing-info-notif", string.format("Fishing - Press %s to Stop. Maybe you could try some deeper water for better fish!", plsr.Keybinds:GetKey("cancel_action")), "fishing-fins")
     else
-        exports["pulsar-hud"]:Notification("info",
-            string.format("Fishing - Press %s to Stop", exports["pulsar-kbs"]:GetKey("cancel_action")),
-            -1,
-            "fishing-rod",
-            nil,
-            "fishing-info-notif")
+        plsr.Notification.Persistent:Info("fishing-info-notif", string.format("Fishing - Press %s to Stop", plsr.Keybinds:GetKey("cancel_action")), "fishing-fins")
     end
 
     local tick = 0
@@ -310,11 +296,12 @@ RegisterNetEvent("Fishing:Client:StartFishing", function(toolUsed)
 
     _fishingTool = toolUsed
 
-    while _isFishing
-        and LocalPlayer.state.loggedIn
+    while _isFishing 
+        and plsr.State.flags.loggedIn
         and CanFishHere() == fishingZone
-        and #(fishingLocation - GetEntityCoords(LocalPlayer.state.ped)) <= 20.0
-        and not IsPedSwimming(LocalPlayer.state.ped) do
+        and #(fishingLocation - GetEntityCoords(PlayerPedId())) <= 20.0
+        and not IsPedSwimming(PlayerPedId()) do
+
         tick += 1
 
         if tick >= _nextBite then
@@ -327,7 +314,7 @@ RegisterNetEvent("Fishing:Client:StartFishing", function(toolUsed)
     end
 
     _isFishing = false
-    exports["pulsar-hud"]:Notification("remove", nil, nil, nil, nil, "fishing-info-notif")
+    plsr.Notification.Persistent:Remove("fishing-info-notif")
 end)
 
 function DoFishBite(zone, toolUsed)
@@ -338,28 +325,28 @@ function DoFishBite(zone, toolUsed)
     end
 
     local difficultyWeights = {
-        { 50, 1 },
-        { 35, 2 },
-        { 15, 3 },
-        { 3,  4 },
+        {50, 1},
+        {35, 2},
+        {15, 3},
+        {3, 4},
     }
 
     -- Ultra Deep Areas (Whales)
     if zone >= 7 and toolUsed == "net" then
         difficultyWeights = {
-            { 10, 1 },
-            { 15, 2 },
-            { 15, 3 },
-            { 30, 4 },
-            { 20, 5 },
-            { 10, 6 },
+            {10, 1},
+            {15, 2},
+            {15, 3},
+            {30, 4},
+            {20, 5},
+            {10, 6},
         }
     elseif zone >= 5 then
         difficultyWeights = {
-            { 10, 1 },
-            { 20, 2 },
-            { 30, 3 },
-            { 15, 4 },
+            {10, 1},
+            {20, 2},
+            {30, 3},
+            {15, 4},
         }
 
         if toolUsed == "net" then
@@ -367,7 +354,7 @@ function DoFishBite(zone, toolUsed)
         end
     end
 
-    local maxDiff = exports['pulsar-core']:UtilsWeightedRandom(difficultyWeights)
+    local maxDiff = plsr.Utils:WeightedRandom(difficultyWeights)
 
     for i = 1, maxDiff, 1 do
         if not DoFishingSkillbar(1.0 + (0.2 * maxDiff), 13 - maxDiff) then
@@ -377,13 +364,13 @@ function DoFishBite(zone, toolUsed)
         Wait(100)
     end
 
-    exports["pulsar-core"]:ServerCallback("Fishing:Catch", {
+    plsr.Callbacks:ServerCallback("Fishing:Catch", {
         zone = zone,
         toolUsed = toolUsed,
         difficulty = maxDiff,
     }, function(success, stopFishing)
         if not success and not stopFishing then
-            exports["pulsar-hud"]:Notification("warning", "The Fish Got Away...", 5000, "fishing-rod")
+            plsr.Notification:Warn("The Fish Got Away...", 5000, "fishing-fins")
         end
 
         if stopFishing then
@@ -397,7 +384,7 @@ end
 
 function DoFishingSkillbar(timeLength, area)
     local p = promise.new()
-    exports['pulsar-games']:MinigamePlayRoundSkillbar(timeLength, area, {
+    plsr.Minigame.Play:RoundSkillbar(timeLength, area, {
         onSuccess = function()
             p:resolve(true)
         end,
@@ -413,7 +400,7 @@ end
 
 function HasCorrectBaitForZone(zone)
     local requiredBait = _fishingZoneBasicBait[zone]
-    if requiredBait and (exports['ox_inventory']:Search('count', requiredBait) or 0) >= 1 then
+    if requiredBait and plsr.Inventory.Check.Player:HasItem(requiredBait, 1) then
         return true
     end
     return false
@@ -443,71 +430,69 @@ function GenerateNextFishTime(zone, toolUsed)
 end
 
 RegisterNetEvent("Fishing:Client:OnDuty", function(joiner, time)
-    _joiner = joiner
-    DeleteWaypoint()
-    SetNewWaypoint(fishingStores[1].coords.x, fishingStores[1].coords.y)
-    _blip = exports["pulsar-blips"]:Add("FishingStart", "Shop Owner",
-        { x = fishingStores[1].coords.x, y = fishingStores[1].coords.y, z = fishingStores[1].coords.z }, 480, 2, 1.4)
+	_joiner = joiner
+	DeleteWaypoint()
+	SetNewWaypoint(fishingStores[1].coords.x, fishingStores[1].coords.y)
+	_blip = plsr.Blips:Add("FishingStart", "Shop Owner", { x = fishingStores[1].coords.x, y = fishingStores[1].coords.y, z = fishingStores[1].coords.z }, 480, 2, 1.4)
 
-    eventHandlers["startup"] = RegisterNetEvent(string.format("Fishing:Client:%s:Startup", joiner), function()
-        _working = true
-        _state = 1
+	eventHandlers["startup"] = RegisterNetEvent(string.format("Fishing:Client:%s:Startup", joiner), function()
+		_working = true
+		_state = 1
 
-        if _blip ~= nil then
-            exports["pulsar-blips"]:Remove("FishingStart")
-            RemoveBlip(_blip)
-        end
-    end)
+		if _blip ~= nil then
+			plsr.Blips:Remove("FishingStart")
+			RemoveBlip(_blip)
+		end
+	end)
 
-    eventHandlers["finish"] = RegisterNetEvent(string.format("Fishing:Client:%s:Finish", joiner), function()
-        _state = 2
-        if _blip ~= nil then
-            exports["pulsar-blips"]:Remove("FishingStart")
-            RemoveBlip(_blip)
-        end
-        _blip = exports["pulsar-blips"]:Add("FishingStart", "Shop Owner",
-            { x = fishingStores[1].coords.x, y = fishingStores[1].coords.y, z = fishingStores[1].coords.z }, 480, 2, 1.4)
-    end)
+	eventHandlers["finish"] = RegisterNetEvent(string.format("Fishing:Client:%s:Finish", joiner), function()
+		_state = 2
+		if _blip ~= nil then
+			plsr.Blips:Remove("FishingStart")
+			RemoveBlip(_blip)
+		end
+		_blip = plsr.Blips:Add("FishingStart", "Shop Owner", { x = fishingStores[1].coords.x, y = fishingStores[1].coords.y, z = fishingStores[1].coords.z }, 480, 2, 1.4)
+	end)
 
-    eventHandlers["end"] = RegisterNetEvent(string.format("Fishing:Client:%s:FinishJob", joiner), function()
-        _state = 3
-    end)
+	eventHandlers["end"] = RegisterNetEvent(string.format("Fishing:Client:%s:FinishJob", joiner), function()
+		_state = 3
+	end)
 end)
 
 RegisterNetEvent("Fishing:Client:OffDuty", function(time)
-    for k, v in pairs(eventHandlers) do
-        RemoveEventHandler(v)
-    end
+	for k, v in pairs(eventHandlers) do
+		RemoveEventHandler(v)
+	end
 
-    if _blip ~= nil then
-        exports["pulsar-blips"]:Remove("FishingStart")
-        RemoveBlip(_blip)
-    end
+	if _blip ~= nil then
+		plsr.Blips:Remove("FishingStart")
+		RemoveBlip(_blip)
+	end
 
-    eventHandlers = {}
-    _joiner = nil
-    _state = nil
-    _working = false
+	eventHandlers = {}
+	_joiner = nil
+	_state = nil
+	_working = false
     _blip = nil
 end)
 
-AddEventHandler("Fishing:Client:OpenShop", function(data)
-    TriggerEvent('Shop:Client:OpenShop', { shopType = data.type })
+AddEventHandler("Fishing:Client:OpenShop", function(hitting, data)
+    plsr.Inventory.Shop:Open(data)
 end)
 
-AddEventHandler("Fishing:Client:Sell", function(data)
-    exports["pulsar-core"]:ServerCallback("Fishing:Sell", data)
+AddEventHandler("Fishing:Client:Sell", function(entity, data)
+	plsr.Callbacks:ServerCallback("Fishing:Sell", data.fish)
 end)
 
 
 AddEventHandler("Keybinds:Client:KeyUp:cancel_action", function()
-    if _isFishing then
+	if _isFishing then
         _isFishing = false
     end
 end)
 
 function IsNearBoat()
-    local coords = GetEntityCoords(LocalPlayer.state.ped)
+    local coords = GetEntityCoords(PlayerPedId())
     local poolVehicles = GetGamePool('CVehicle')
     local lastDist = 10.0
     local lastVeh = false
@@ -532,36 +517,32 @@ function StartFishingAnimation()
         LoadPropDict(fishingRodProp)
     end
 
-    fishingRodObj = CreateObject(fishingRodProp, GetEntityCoords(LocalPlayer.state.ped), true, true, true)
-    AttachEntityToEntity(fishingRodObj, LocalPlayer.state.ped, GetPedBoneIndex(LocalPlayer.state.ped, 60309), 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, true, true, false, true, 1, true)
+    fishingRodObj = CreateObject(fishingRodProp, GetEntityCoords(PlayerPedId()), true, true, true)
+    AttachEntityToEntity(fishingRodObj, PlayerPedId(), GetPedBoneIndex(PlayerPedId(), 60309), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, true, true, false, true, 1, true)
 
     CreateThread(function()
-        while _isFishing and LocalPlayer.state.loggedIn do
-            if not IsEntityPlayingAnim(LocalPlayer.state.ped, "amb@world_human_stand_fishing@base", "base", 3) and not IsEntityPlayingAnim(LocalPlayer.state.ped, "amb@world_human_stand_fishing@idle_a", "idle_c", 3) then
-                TaskPlayAnim(LocalPlayer.state.ped, "amb@world_human_stand_fishing@base", "base", 3.0, 3.0, -1, 49, 0,
-                    false, false, false)
+        while _isFishing and plsr.State.flags.loggedIn do
+            if not IsEntityPlayingAnim(PlayerPedId(), "amb@world_human_stand_fishing@base", "base", 3) and not IsEntityPlayingAnim(PlayerPedId(), "amb@world_human_stand_fishing@idle_a", "idle_c", 3) then
+                TaskPlayAnim(PlayerPedId(), "amb@world_human_stand_fishing@base", "base", 3.0, 3.0, -1, 49, 0, false, false, false)
             end
             Wait(250)
         end
 
-        StopAnimTask(LocalPlayer.state.ped, "amb@world_human_stand_fishing@base", "base", 3.0)
-        StopAnimTask(LocalPlayer.state.ped, "amb@world_human_stand_fishing@idle_a", "idle_c", 3.0)
+        StopAnimTask(PlayerPedId(), "amb@world_human_stand_fishing@base", "base", 3.0)
+        StopAnimTask(PlayerPedId(), "amb@world_human_stand_fishing@idle_a", "idle_c", 3.0)
         DeleteEntity(fishingRodObj)
     end)
 end
 
 function DoFishingCatchingAnimation()
     CreateThread(function()
-        TaskPlayAnim(LocalPlayer.state.ped, "amb@world_human_stand_fishing@idle_a", "idle_c", 3.0, 3.0, -1, 49, 0, false,
-            false, false)
-        StopAnimTask(LocalPlayer.state.ped, "amb@world_human_stand_fishing@base", "base", 3.0)
+        TaskPlayAnim(PlayerPedId(), "amb@world_human_stand_fishing@idle_a", "idle_c", 3.0, 3.0, -1, 49, 0, false, false, false)
+        StopAnimTask(PlayerPedId(), "amb@world_human_stand_fishing@base", "base", 3.0)
         Wait(5000)
 
         if _isFishing then
-            TaskPlayAnim(LocalPlayer.state.ped, "amb@world_human_stand_fishing@base", "base", 3.0, 3.0, -1, 49, 0, false,
-                false, false)
-            StopAnimTask(LocalPlayer.state.ped, "amb@world_human_stand_fishing@idle_a", "idle_c", 3.0)
+            TaskPlayAnim(PlayerPedId(), "amb@world_human_stand_fishing@base", "base", 3.0, 3.0, -1, 49, 0, false, false, false)
+            StopAnimTask(PlayerPedId(), "amb@world_human_stand_fishing@idle_a","idle_c", 3.0)
         end
     end)
 end
@@ -570,15 +551,14 @@ function StartFishingNetAnimation()
     LoadAnim("amb@world_human_bum_wash@male@low@idle_a")
 
     CreateThread(function()
-        while _isFishing and LocalPlayer.state.loggedIn do
-            if not IsEntityPlayingAnim(LocalPlayer.state.ped, "amb@world_human_bum_wash@male@low@idle_a", "idle_a", 3) then
-                TaskPlayAnim(LocalPlayer.state.ped, "amb@world_human_bum_wash@male@low@idle_a", "idle_a", 3.0, 3.0, -1,
-                    49, 0, false, false, false)
+        while _isFishing and plsr.State.flags.loggedIn do
+            if not IsEntityPlayingAnim(PlayerPedId(), "amb@world_human_bum_wash@male@low@idle_a", "idle_a", 3) then
+                TaskPlayAnim(PlayerPedId(), "amb@world_human_bum_wash@male@low@idle_a", "idle_a", 3.0, 3.0, -1, 49, 0, false, false, false)
             end
             Wait(250)
         end
 
-        StopAnimTask(LocalPlayer.state.ped, "amb@world_human_bum_wash@male@low@idle_a", "idle_a", 3.0)
+        StopAnimTask(PlayerPedId(), "amb@world_human_bum_wash@male@low@idle_a", "idle_a", 3.0)
     end)
 end
 
@@ -590,18 +570,18 @@ function StartFishingControlBlockers()
     CreateThread(function()
         while _isFishing do
             DisablePlayerFiring(PlayerId(), true) -- Disable weapon firing
-            DisableControlAction(0, 24, true)     -- disable attack
-            DisableControlAction(0, 25, true)     -- disable aim
-            DisableControlAction(1, 37, true)     -- disable weapon select
-            DisableControlAction(0, 47, true)     -- disable weapon
-            DisableControlAction(0, 58, true)     -- disable weapon
-            DisableControlAction(0, 140, true)    -- disable melee
-            DisableControlAction(0, 141, true)    -- disable melee
-            DisableControlAction(0, 142, true)    -- disable melee
-            DisableControlAction(0, 143, true)    -- disable melee
-            DisableControlAction(0, 263, true)    -- disable melee
-            DisableControlAction(0, 264, true)    -- disable melee
-            DisableControlAction(0, 257, true)    -- disable melee
+            DisableControlAction(0, 24, true) -- disable attack
+            DisableControlAction(0, 25, true) -- disable aim
+            DisableControlAction(1, 37, true) -- disable weapon select
+            DisableControlAction(0, 47, true) -- disable weapon
+            DisableControlAction(0, 58, true) -- disable weapon
+            DisableControlAction(0, 140, true) -- disable melee
+            DisableControlAction(0, 141, true) -- disable melee
+            DisableControlAction(0, 142, true) -- disable melee
+            DisableControlAction(0, 143, true) -- disable melee
+            DisableControlAction(0, 263, true) -- disable melee
+            DisableControlAction(0, 264, true) -- disable melee
+            DisableControlAction(0, 257, true) -- disable melee
 
             Wait(1)
         end

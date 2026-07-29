@@ -28,15 +28,15 @@ function SendPedToPlayer(ped, coords)
 	CloseSequenceTask(taskSeq)
 
 	TaskPerformSequence(ped, taskSeq)
-	Entity(ped).state:set("sentToPed", true, true)
+	plsr.State.Entity(ped).sentToPed = true
 	ClearSequenceTask()
 	SetPedKeepTask(ped, true)
 
 	SetEntityAsMissionEntity(ped, true, true)
 	SetTimeout((1000 * 60) * 2, function()
-		if not Entity(ped).state.boughtDrugs and _working then
-			exports["pulsar-core"]:ServerCallback("CornerDealing:PedTimeout", {})
-			exports["pulsar-core"]:DeletePed(ped)
+		if not plsr.State.Entity(ped).boughtDrugs and _working then
+			plsr.Callbacks:ServerCallback("CornerDealing:PedTimeout", {})
+			plsr.NetSync:DeletePed(ped)
 		end
 	end)
 end
@@ -45,7 +45,7 @@ function DoHandoff(ped)
 	loadAnimDict("mp_safehouselost@")
 	ClearPedTasks(ped)
 
-	PlayAmbientSpeech1(ped, 'Chat_State', 'Speech_Params_Force')
+    PlayAmbientSpeech1(ped, 'Chat_State', 'Speech_Params_Force')
 
 	local taskSeq = OpenSequenceTask()
 	TaskSetBlockingOfNonTemporaryEvents(0, true)
@@ -61,17 +61,17 @@ function DoHandoff(ped)
 end
 
 function AddTargetingShit(ped)
-	exports.ox_target:addEntity(ped, {
+	plsr.Targeting:AddPed(ped, "hands-holding-dollar", {
 		{
 			icon = "list-timeline",
-			label = "Sell Product",
+			text = "Sell Product",
 			event = "CornerDealing:Client:ShowMenu",
-			distance = 2.0,
-			canInteract = function(entity)
-				return not Entity(entity).state.boughtDrugs and not IsPedDeadOrDying(entity)
+			minDist = 2.0,
+			isEnabled = function(data, entity)
+				return not plsr.State.Entity(entity.entity).boughtDrugs and not IsPedDeadOrDying(entity.entity)
 			end,
 		},
-	})
+	}, 3.0)
 end
 
 function getRandomIdle()
@@ -105,6 +105,8 @@ RegisterNetEvent("Labor:Client:GetLocs", function(locs)
 end)
 
 AddEventHandler("Labor:Client:Setup", function()
+	plsr.State.flags.cornering = false
+
 	while _queueLoc == nil do
 		Wait(10)
 	end
@@ -112,43 +114,43 @@ AddEventHandler("Labor:Client:Setup", function()
 	if _queueLoc.coords == nil then
 		return
 	end
-	exports['pulsar-pedinteraction']:Add("CornerDealing", GetHashKey("csb_grove_str_dlr"), _queueLoc.coords,
-		_queueLoc.heading, 25.0, {
-			{
-				icon = "clock-nine",
-				text = "Sign Up",
-				event = "CornerDealing:Client:Enable",
-				data = {},
-				isEnabled = function()
-					return not hasValue(LocalPlayer.state.Character:GetData("States") or {}, "SCRIPT_CORNER_DEALING")
-						and LocalPlayer.state.onDuty ~= "police"
-				end,
-			},
-			{
-				icon = "clock-nine",
-				text = "Sign Off",
-				event = "CornerDealing:Client:Disable",
-				data = {},
-				isEnabled = function()
-					return hasValue(LocalPlayer.state.Character:GetData("States") or {}, "SCRIPT_CORNER_DEALING")
-						and LocalPlayer.state.onDuty ~= "police"
-				end,
-			},
-			{
-				icon = "list-radio",
-				text = "View Offers",
-				event = "Vendor:Client:GetItems",
-				data = {
-					id = "CornerDealer",
-				}
-			},
-		}, "seal-question", "WORLD_HUMAN_SMOKING")
+	plsr.PedInteraction:Add("CornerDealing", GetHashKey("csb_grove_str_dlr"), _queueLoc.coords, _queueLoc.heading, 25.0, {
+		{
+			icon = "clock-nine",
+			text = "Sign Up",
+			event = "CornerDealing:Client:Enable",
+			data = {},
+			isEnabled = function()
+				return not hasValue(plsr.State.character.States or {}, "SCRIPT_CORNER_DEALING")
+					and plsr.State.flags.onDuty ~= "police"
+			end,
+		},
+		{
+			icon = "clock-nine",
+			text = "Sign Off",
+			event = "CornerDealing:Client:Disable",
+			data = {},
+			isEnabled = function()
+				return hasValue(plsr.State.character.States or {}, "SCRIPT_CORNER_DEALING")
+					and plsr.State.flags.onDuty ~= "police"
+			end,
+		},
+		{
+			icon = "list-radio",
+			text = "View Offers",
+			event = "Vendor:Client:GetItems",
+			data = {
+				id = "CornerDealer",
+			}
+		},
+	}, "question", "WORLD_HUMAN_SMOKING")
 end)
 
 RegisterNetEvent("CornerDealing:Client:DoSequence", function(seqType, netId, arg2)
 	if seqType == "goto" then
 		SendPedToPlayer(NetworkGetEntityFromNetworkId(netId), arg2)
 	elseif seqType == "handoff" then
+		
 		local ped = NetworkGetEntityFromNetworkId(netId)
 		local relation = GetPedRelationshipGroupHash(ped)
 		SetRelationshipBetweenGroups(0, `PLAYER`, relation)
@@ -165,8 +167,7 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 	_working = true
 	_joiner = joiner
 	_state = 0
-	LocalPlayer.state.cornerJoiner = joiner
-	LocalPlayer.state:set("cornering", false, true)
+	plsr.State.flags.cornering = false
 
 	local dutyTime = GetGameTimer()
 	_onDutyTime = dutyTime
@@ -204,18 +205,18 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 		end
 
 		if _working and _state == 0 then
-			exports["pulsar-core"]:ServerCallback("CornerDealing:CheckCorner", {
-				coords = GetEntityCoords(LocalPlayer.state.ped)
+			plsr.Callbacks:ServerCallback("CornerDealing:CheckCorner", {
+				coords = GetEntityCoords(PlayerPedId())
 			}, function(s)
 				if s then
 					_SellingVeh = entity.entity
-					_SellingCorner = GetEntityCoords(LocalPlayer.state.ped)
-					LocalPlayer.state:set("cornering", true, true)
-					Entity(_SellingVeh).state:set("cornering", true, true)
-
-					exports['pulsar-vehicles']:SyncDoorsOpen(entity.entity, 5, true, true)
-
-					exports["pulsar-core"]:ServerCallback("CornerDealing:StartCornering", {
+					_SellingCorner = GetEntityCoords(PlayerPedId())
+					plsr.State.flags.cornering = true
+					plsr.State.Entity(_SellingVeh).cornering = true
+		
+					plsr.Vehicles.Sync.Doors:Open(entity.entity, 5, true, true)
+		
+					plsr.Callbacks:ServerCallback("CornerDealing:StartCornering", {
 						netId = NetworkGetNetworkIdFromEntity(entity.entity),
 						corner = _SellingCorner,
 					})
@@ -224,9 +225,9 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 		end
 	end)
 
-	eventHandlers["stop-cornering"] = AddEventHandler("CornerDealing:Client:StopCornering", function()
+	eventHandlers["stop-cornering"] = AddEventHandler("CornerDealing:Client:StopCornering", function(data, entity)
 		if _working then
-			exports["pulsar-core"]:ServerCallback("CornerDealing:StopCornering")
+			plsr.Callbacks:ServerCallback("CornerDealing:StopCornering")
 		end
 	end)
 
@@ -241,13 +242,12 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 			CreateThread(function()
 				while _working and _state == 1 and _startTime == start do
 					if _SellingPed ~= nil then
-						local myCoords = GetEntityCoords(LocalPlayer.state.ped)
+						local myCoords = GetEntityCoords(PlayerPedId())
 						local pedCoords = GetEntityCoords(_SellingPed)
 
 						local dist = #(pedCoords - myCoords)
 						if dist <= 30.0 then
-							DrawMarker(2, pedCoords.x, pedCoords.y, pedCoords.z + 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25,
-								0.25, 0.25, 255, 0, 0, 150, true, true, 0, 0)
+							DrawMarker(2, pedCoords.x, pedCoords.y, pedCoords.z + 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.25, 0.25, 255, 0, 0, 150, true, true, 0, 0)
 							Wait(1)
 						else
 							Wait(dist)
@@ -267,27 +267,26 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 							if not ending then
 								if DoesEntityExist(_SellingVeh) then
 									if GetEntityHealth(_SellingVeh) == 0 or not IsVehicleDriveable(_SellingVeh) then
-										exports['pulsar-core']:LoggerTrace("CornerDealing",
-											"Vehice Health 0 or Not Drivable")
+										plsr.Logger:Trace("CornerDealing", "Vehicle Health 0 or Not Drivable")
 										ending = true
-										exports["pulsar-core"]:ServerCallback("CornerDealing:DestroyVehicle")
+										plsr.Callbacks:ServerCallback("CornerDealing:DestroyVehicle")
 									end
 								end
 							end
 							Wait(10)
 						end
 					end)
-
+		
 					CreateThread(function()
 						local ending = false
 						while _working and _state == 1 and _startTime == start do
 							if not ending and _SellingVeh ~= 0 and _SellingVeh ~= nil then
-								local myPos = GetEntityCoords(LocalPlayer.state.ped)
+								local myPos = GetEntityCoords(PlayerPedId())
 								local vehPos = GetEntityCoords(_SellingVeh)
 								if #(vehPos - _SellingCorner) > 50.0 then
-									exports['pulsar-core']:LoggerTrace("CornerDealing", "Vehicle Too Far From Corner")
+									plsr.Logger:Trace("CornerDealing", "Vehicle Too Far From Corner")
 									ending = true
-									exports["pulsar-core"]:ServerCallback("CornerDealing:LeaveArea")
+									plsr.Callbacks:ServerCallback("CornerDealing:LeaveArea")
 								end
 							end
 							Wait(10)
@@ -295,18 +294,18 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 					end)
 
 					CreateThread(function()
-						while _working and _state == 1 and LocalPlayer.state.loggedIn do
+						while _working and _state == 1 and plsr.State.flags.loggedIn do
 							PopulateNow()
 							Wait(1000)
 						end
 					end)
-
+	
 					CreateThread(function()
-						while _working and _state == 1 and LocalPlayer.state.loggedIn and notFoundCount < 10 and _startTime == start do
+						while _working and _state == 1 and plsr.State.flags.loggedIn and notFoundCount < 10 and _startTime == start do
 							if _SellingPed == nil then
 								local peds = GetGamePool("CPed")
 								for _, ped in ipairs(peds) do
-									local entState = Entity(ped).state
+									local entState = plsr.State.Entity(ped)
 									if
 										not IsPedDeadOrDying(ped, true)
 										and not IsPedAPlayer(ped)
@@ -320,7 +319,7 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 										and not entState.boughtDrugs
 										and #(_SellingCorner - GetEntityCoords(ped)) < 50.0
 									then
-										entState:set("isDrugBuyer", joiner, true)
+										entState.isDrugBuyer = joiner
 										SetPedSeeingRange(ped, 0.0)
 										SetPedHearingRange(ped, 0.0)
 										SetPedFleeAttributes(ped, 0, false)
@@ -331,28 +330,27 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 										SetBlockingOfNonTemporaryEvents(ped, 1)
 										_SellingPed = ped
 
-										print(string.format("Cornering Buyer Found: %s (%s - %s)", ped,
-											json.encode(GetEntityCoords(ped)), #(_SellingCorner - GetEntityCoords(ped))))
+										print(string.format("Cornering Buyer Found: %s (%s - %s)", ped, json.encode(GetEntityCoords(ped)), #(_SellingCorner - GetEntityCoords(ped))))
 
 										notFoundCount = 0
 										break
 									end
 								end
-
+	
 								if not _SellingPed then
 									notFoundCount += 1
 								else
-									if not Entity(_SellingPed).state.sentToPed then
+									if not plsr.State.Entity(_SellingPed).sentToPed then
 										if NetworkGetEntityIsNetworked(_SellingPed) then
-											exports["pulsar-core"]:ServerCallback(
+											plsr.Callbacks:ServerCallback(
 												"CornerDealing:SyncPed",
 												NetworkGetNetworkIdFromEntity(_SellingPed)
 											)
-
+		
 											if NetworkHasControlOfEntity(_SellingPed) then
 												SendPedToPlayer(_SellingPed, _SellingCorner)
 											else
-												exports["pulsar-core"]:ServerCallback("CornderDealing:SyncEvent", {
+												plsr.Callbacks:ServerCallback("CornderDealing:SyncEvent", {
 													event = "goto",
 													netId = NetworkGetNetworkIdFromEntity(_SellingPed),
 													coords = _SellingCorner
@@ -365,9 +363,9 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 										end
 									end
 								end
-
+	
 								if notFoundCount >= 10 then
-									exports["pulsar-core"]:ServerCallback("CornerDealing:NoPeds", {})
+									plsr.Callbacks:ServerCallback("CornerDealing:NoPeds", {})
 									return
 								end
 							end
@@ -388,7 +386,7 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 		string.format("CornerDealing:Client:%s:RemoveTargetting", joiner),
 		function()
 			if _SellingPed ~= nil then
-				exports.ox_target:removeEntity(_SellingPed)
+				plsr.Targeting:RemovePed(_SellingPed)
 			end
 		end
 	)
@@ -397,7 +395,7 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 		string.format("CornerDealing:Client:%s:SoldToPed", joiner),
 		function()
 			if _SellingPed ~= nil then
-				exports.ox_target:removeEntity(_SellingPed)
+				plsr.Targeting:RemovePed(_SellingPed)
 			end
 			_SellingPed = nil
 		end
@@ -407,17 +405,17 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 		string.format("CornerDealing:Client:%s:EndSelling", joiner),
 		function()
 			if _SellingPed ~= nil then
-				exports.ox_target:removeEntity(_SellingPed)
+				plsr.Targeting:RemovePed(_SellingPed)
 			end
 			if _SellingVeh ~= nil then
-				Entity(_SellingVeh).state:set("cornering", false, true)
+				plsr.State.Entity(_SellingVeh).cornering = false
 			end
 			_state = 0
 			_SellingPed = nil
 			_SellingCorner = nil
 			_SellingVeh = nil
 			_threading = false
-			LocalPlayer.state:set("cornering", false, true)
+			plsr.State.flags.cornering = false
 		end
 	)
 
@@ -425,7 +423,7 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 		string.format("CornerDealing:Client:%s:PedDied", joiner),
 		function()
 			if _SellingPed ~= nil then
-				exports.ox_target:removeEntity(_SellingPed)
+				plsr.Targeting:RemovePed(_SellingPed)
 			end
 			_SellingPed = nil
 		end
@@ -435,7 +433,7 @@ RegisterNetEvent("CornerDealing:Client:OnDuty", function(joiner, time)
 		string.format("CornerDealing:Client:%s:PedTimeout", joiner),
 		function()
 			if _SellingPed ~= nil then
-				exports.ox_target:removeEntity(_SellingPed)
+				plsr.Targeting:RemovePed(_SellingPed)
 			end
 			_SellingPed = nil
 		end
@@ -448,11 +446,11 @@ AddEventHandler("CornerDealing:Client:ShowMenu", function(entity, data)
 	end
 
 	if _working and _state == 1 then
-		exports["pulsar-core"]:ServerCallback("CornerDealing:GetSaleMenu", {
+		plsr.Callbacks:ServerCallback("CornerDealing:GetSaleMenu", {
 			netId = NetworkGetNetworkIdFromEntity(entity.entity),
 		}, function(data)
 			if data ~= nil and #data > 0 then
-				exports['pulsar-hud']:ListMenuShow({
+				plsr.ListMenu:Show({
 					main = {
 						label = "Corner Dealing",
 						items = data,
@@ -460,22 +458,22 @@ AddEventHandler("CornerDealing:Client:ShowMenu", function(entity, data)
 				})
 				_hasSellingMenu = true
 			else
-				exports["pulsar-hud"]:Notification("error", "You Have Nothing To Sell")
+				plsr.Notification:Error("You Have Nothing To Sell")
 			end
 		end)
 	end
 end)
 
 AddEventHandler("CornerDealing:Client:Sell", function(data)
-	Entity(_SellingPed).state:set("boughtDrugs", true, true)
-	exports["pulsar-core"]:ServerCallback("CornerDealing:DoSale", {
+	plsr.State.Entity(_SellingPed).boughtDrugs = true
+	plsr.Callbacks:ServerCallback("CornerDealing:DoSale", {
 		item = data,
 		netId = NetworkGetNetworkIdFromEntity(_SellingPed),
 	}, function(r)
 		if r then
 			local pda = math.random(100)
 			if pda >= 60 then
-				exports['pulsar-mdt']:EmergencyAlertsCreateIfReported(100.0, "oxysale", true)
+				plsr.EmergencyAlerts:CreateIfReported(100.0, "oxysale", true)
 			end
 
 			if NetworkHasControlOfEntity(_SellingPed) then
@@ -491,7 +489,7 @@ AddEventHandler("CornerDealing:Client:Sell", function(data)
 				if NetworkHasControlOfEntity(_SellingPed) then
 					DoHandoff(_SellingPed)
 				else
-					exports["pulsar-core"]:ServerCallback("CornderDealing:SyncEvent", {
+					plsr.Callbacks:ServerCallback("CornderDealing:SyncEvent", {
 						event = "handoff",
 						netId = NetworkGetNetworkIdFromEntity(_SellingPed),
 						coords = _SellingCorner
@@ -500,18 +498,18 @@ AddEventHandler("CornerDealing:Client:Sell", function(data)
 			end
 
 			PlayAmbientSpeech1(_SellingPed, 'Generic_Hi', 'Speech_Params_Force')
-			TaskTurnPedToFaceEntity(LocalPlayer.state.ped, _SellingPed, 1000)
-			exports['pulsar-animations']:EmotesPlay("handoff", false, 3000, true, true)
+			TaskTurnPedToFaceEntity(PlayerPedId(), _SellingPed, 1000)
+			plsr.Animations.Emotes:Play("handoff", false, 3000, true, true)
 		end
-
+		
 		_hasSellingMenu = false
 	end)
 end)
 
 AddEventHandler("CornerDealing:Client:StartJob", function()
-	exports["pulsar-core"]:ServerCallback("CornerDealing:StartJob", _joiner, function(state)
+	plsr.Callbacks:ServerCallback("CornerDealing:StartJob", _joiner, function(state)
 		if not state then
-			exports["pulsar-hud"]:Notification("error", "Unable To Start Job")
+			plsr.Notification:Error("Unable To Start Job")
 		end
 	end)
 end)
@@ -522,14 +520,14 @@ RegisterNetEvent("CornerDealing:Client:OffDuty", function(time)
 	end
 
 	if _SellingPed ~= nil then
-		exports.ox_target:removeEntity(_SellingPed)
+		plsr.Targeting:RemovePed(_SellingPed)
 	end
 	if _SellingVeh ~= nil then
-		Entity(_SellingVeh).state:set("cornering", false, true)
+		plsr.State.Entity(_SellingVeh).cornering = false
 	end
 
-	exports["pulsar-core"]:SetEntityAsNoLongerNeeded(_SellingPed)
-	exports["pulsar-core"]:SetPedKeepTask(_SellingPed, false)
+	plsr.NetSync:SetEntityAsNoLongerNeeded(_SellingPed)
+	plsr.NetSync:SetPedKeepTask(_SellingPed, false)
 	_SellingPed = nil
 	_SellingCorner = nil
 	_SellingVeh = nil
@@ -537,7 +535,7 @@ RegisterNetEvent("CornerDealing:Client:OffDuty", function(time)
 	_working = false
 	_state = 0
 
-	LocalPlayer.state:set("cornering", false, true)
+	plsr.State.flags.cornering = false
 end)
 
 -- AddEventHandler("gameEventTriggered", function(name, args)
@@ -547,7 +545,7 @@ end)
 -- 				if IsEntityAPed(args[1]) then --both victim and killer are peds.
 -- 					local entState = Entity(args[1]).state
 -- 					if entState.isDrugBuyer == _joiner then
--- 						exports["pulsar-core"]:ServerCallback("CornerDealing:PedDied", {})
+-- 						plsr.Callbacks:ServerCallback("CornerDealing:PedDied", {})
 -- 					end
 -- 				end
 -- 			end
@@ -556,9 +554,9 @@ end)
 -- end)
 
 AddEventHandler("CornerDealing:Client:Enable", function()
-	exports["pulsar-core"]:ServerCallback("CornerDealing:Enable", {})
+	plsr.Callbacks:ServerCallback("CornerDealing:Enable", {})
 end)
 
 AddEventHandler("CornerDealing:Client:Disable", function()
-	exports["pulsar-core"]:ServerCallback("CornerDealing:Disable", {})
+	plsr.Callbacks:ServerCallback("CornerDealing:Disable", {})
 end)

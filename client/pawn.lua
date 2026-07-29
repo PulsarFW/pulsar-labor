@@ -8,7 +8,7 @@ local _sellers = {
 
 AddEventHandler("Labor:Client:Setup", function()
 	for k, v in ipairs(_sellers) do
-		exports['pulsar-pedinteraction']:Add(string.format("PawnSeller%s", k), v.model, v.coords, v.heading, 25.0, {
+		plsr.PedInteraction:Add(string.format("PawnSeller%s", k), v.model, v.coords, v.heading, 25.0, {
 			{
 				icon = "ring",
 				text = "Sell Jewelry",
@@ -52,7 +52,7 @@ AddEventHandler("Labor:Client:Setup", function()
 				data = "raremetals",
 			},
 			-- {
-			-- 	icon = 'box-open-full',
+			-- 	icon = 'boxes-packing',
 			-- 	text = 'Buy Items',
 			-- 	event = 'Pawn:Client:SellJewelry',
 			-- 	rep = { id = 'Pawn', level = 3 },
@@ -62,5 +62,5 @@ AddEventHandler("Labor:Client:Setup", function()
 end)
 
 AddEventHandler("Pawn:Client:Sell", function(e, data)
-	exports["pulsar-core"]:ServerCallback("Pawn:Sell", data)
+	plsr.Callbacks:ServerCallback("Pawn:Sell", data)
 end)

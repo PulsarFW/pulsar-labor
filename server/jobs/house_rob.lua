@@ -30,7 +30,7 @@ local _loot = {
 		{ 25, { name = "ring", min = 2, max = 8 } },
 		{ 15, { name = "chain", min = 3, max = 10 } },
 		{ 29, { name = "earrings", min = 6, max = 15 } },
-		{ 1,  { name = "valuegoods", max = 1 } },
+		{ 1, { name = "valuegoods", max = 1 } },
 	},
 	medicine = {
 		-- { 25, { name = "hydrocodone", max = 3 } },
@@ -90,17 +90,14 @@ function StartAlarmCheck(joiner)
 						and not _robbers[joiner].nodes.states.alarm.triggered
 					)
 				then
-					exports['pulsar-labor']:SendWorkgroupEvent(joiner,
-						string.format("HouseRobbery:Client:%s:AlarmTriggered", joiner))
+					plsr.Labor.Workgroups:SendEvent(joiner, string.format("HouseRobbery:Client:%s:AlarmTriggered", joiner))
 
-					exports['pulsar-robbery']:TriggerPDAlert(joiner,
-						vector3(_robbers[joiner].coords.x, _robbers[joiner].coords.y, _robbers[joiner].coords.z), "10-90",
-						"House Alarm", {
-							icon = 374,
-							size = 0.9,
-							color = 31,
-							duration = (60 * 5),
-						})
+					plsr.Robbery:TriggerPDAlert(joiner, vector3(_robbers[joiner].coords.x, _robbers[joiner].coords.y, _robbers[joiner].coords.z), "10-90", "House Alarm", {
+						icon = 374,
+						size = 0.9,
+						color = 31,
+						duration = (60 * 5),
+					})
 					return
 				end
 				Wait(10000)
@@ -116,24 +113,162 @@ AddEventHandler("Characters:Server:PlayerLoggedOut", function(source, cData)
 end)
 
 AddEventHandler("Labor:Server:Startup", function()
-	RegisterItems()
-
 	--SetupHouseData()
 
-	exports['pulsar-core']:WaitListCreate("houserobbery", "individual_time", {
+	plsr.WaitList:Create("houserobbery", "individual_time", {
 		event = "Labor:Server:HouseRobbery:Queue",
 		delay = (1000 * 60) * math.random(2, 5),
 	})
 
 	GlobalState["Robbery:InProgress"] = {}
 
-	exports["pulsar-core"]:RegisterServerCallback("HouseRobbery:Enable", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Inventory.Items:RegisterUse("lockpick", "Robbery", function(source, slot, itemData)
+		local char = plsr.Fetch:CharacterSource(source)
+
+		if
+			char
+			and char:GetData("TempJob") == _JOB
+			and _joiners[source] ~= nil
+			and _robbers[_joiners[source]] ~= nil
+			and _robbers[_joiners[source]].state == 2
+		then
+			if GetVehiclePedIsIn(GetPlayerPed(source)) == 0 then
+				local dist = #(GetEntityCoords(GetPlayerPed(source)) - vector3(_robbers[_joiners[source]].coords.x, _robbers[_joiners[source]].coords.y, _robbers[_joiners[source]].coords.z))
+
+				if dist <= 3.0 then
+					if s ~= nil and s > os.time() then
+						plsr.Execute:Client(
+							source,
+							"Notification",
+							"Error",
+							"You Notice The Door Lock Has Been Damaged",
+							6000
+						)
+					else
+						_robbers[_joiners[source]].state = 3
+						plsr.Callbacks:ClientCallback(
+							source,
+							"HouseRobbery:Lockpick",
+							{ property = _robbers[_joiners[source]].property, tier = _robbers[_joiners[source]].tier },
+							function(success)
+
+								local newValue = slot.CreateDate - (60 * 60 * 24)
+								if success then
+									newValue = slot.CreateDate - (60 * 60 * 12)
+								end
+								if (os.time() - itemData.durability >= newValue) then
+									plsr.Inventory.Items:RemoveId(slot.Owner, slot.invType, slot)
+								else
+									plsr.Inventory:SetItemCreateDate(slot.id, newValue)
+								end
+
+								local tier = _robbers[_joiners[source]].tier
+								if success then
+									plsr.Status.Modify:Add(source, "PLAYER_STRESS", tier)
+									plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("HouseRobbery:Client:%s:Lockpicked", _joiners[source]), _robbers[_joiners[source]].nodes)
+
+									plsr.Labor.Offers:Start(
+										_joiners[source],
+										_JOB,
+										"Search Areas",
+										#HouseRobberyInteriors[tier].robberies.locations
+									)
+
+									if _robbers[_joiners[source]].nodes.chances.alarm then
+										StartAlarmCheck(_joiners[source])
+									end
+
+									_robbers[_joiners[source]].state = 4
+								else
+									_robbers[_joiners[source]].state = 2
+									plsr.Status.Modify:Add(source, "PLAYER_STRESS", tier * 2)
+								end
+							end
+						)
+					end
+				end
+			else
+			end
+		end
+	end)
+
+	plsr.Inventory.Items:RegisterUse("adv_lockpick", "Robbery", function(source, slot, itemData)
+		local char = plsr.Fetch:CharacterSource(source)
+
+		if
+			char
+			and char:GetData("TempJob") == _JOB
+			and _joiners[source] ~= nil
+			and _robbers[_joiners[source]] ~= nil
+			and _robbers[_joiners[source]].state == 2
+		then
+			if GetVehiclePedIsIn(GetPlayerPed(source)) == 0 then
+				local dist = #(GetEntityCoords(GetPlayerPed(source)) - vector3(_robbers[_joiners[source]].coords.x, _robbers[_joiners[source]].coords.y, _robbers[_joiners[source]].coords.z))
+
+				if dist <= 3.0 then
+					if s ~= nil and s > os.time() then
+						plsr.Execute:Client(
+							source,
+							"Notification",
+							"Error",
+							"You Notice The Door Lock Has Been Damaged",
+							6000
+						)
+					else
+						_robbers[_joiners[source]].state = 3
+						plsr.Callbacks:ClientCallback(
+							source,
+							"HouseRobbery:AdvLockpick",
+							{ property = _robbers[_joiners[source]].property, tier = _robbers[_joiners[source]].tier },
+							function(success)
+
+								local newValue = slot.CreateDate - (60 * 60 * 24)
+								if success then
+									newValue = slot.CreateDate - (60 * 60 * 12)
+								end
+								if (os.time() - itemData.durability >= newValue) then
+									plsr.Inventory.Items:RemoveId(slot.Owner, slot.invType, slot)
+								else
+									plsr.Inventory:SetItemCreateDate(slot.id, newValue)
+								end
+
+								local tier = _robbers[_joiners[source]].tier
+								if success then
+									plsr.Status.Modify:Add(source, "PLAYER_STRESS", tier)
+									plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("HouseRobbery:Client:%s:Lockpicked", _joiners[source]), _robbers[_joiners[source]].nodes)
+
+									plsr.Labor.Offers:Start(
+										_joiners[source],
+										_JOB,
+										"Search Areas",
+										#HouseRobberyInteriors[tier].robberies.locations
+									)
+
+									if _robbers[_joiners[source]].nodes.chances.alarm then
+										StartAlarmCheck(_joiners[source])
+									end
+
+									_robbers[_joiners[source]].state = 4
+								else
+									_robbers[_joiners[source]].state = 2
+									plsr.Status.Modify:Add(source, "PLAYER_STRESS", tier * 2)
+								end
+							end
+						)
+					end
+				end
+			else
+			end
+		end
+	end)
+
+	plsr.Callbacks:RegisterServerCallback("HouseRobbery:Enable", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		local states = char:GetData("States") or {}
 		if not hasValue(states, "SCRIPT_HOUSE_ROBBERY") then
 			table.insert(states, "SCRIPT_HOUSE_ROBBERY")
 			char:SetData("States", states)
-			exports['pulsar-phone']:NotificationAdd(
+			plsr.Phone.Notification:Add(
 				source,
 				"New Job Available",
 				"A new job is available, check it out.",
@@ -145,8 +280,8 @@ AddEventHandler("Labor:Server:Startup", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("HouseRobbery:Disable", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("HouseRobbery:Disable", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		local states = char:GetData("States") or {}
 		if hasValue(states, "SCRIPT_HOUSE_ROBBERY") then
 			for k, v in ipairs(states) do
@@ -159,8 +294,8 @@ AddEventHandler("Labor:Server:Startup", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("HouseRobbery:ArrivedNear", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("HouseRobbery:ArrivedNear", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
 			if
 				char:GetData("TempJob") == _JOB
@@ -169,26 +304,23 @@ AddEventHandler("Labor:Server:Startup", function()
 				and _robbers[_joiners[source]].state == 1
 			then
 				_robbers[_joiners[source]].state = 2
-				exports['pulsar-labor']:TaskOffer(_joiners[source], _JOB, "Break into the house")
-				exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-					string.format("HouseRobbery:Client:%s:Near", _joiners[source]), _robbers[_joiners[source]].coords)
+				plsr.Labor.Offers:Task(_joiners[source], _JOB, "Break into the house")
+				plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("HouseRobbery:Client:%s:Near", _joiners[source]), _robbers[_joiners[source]].coords)
 			end
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("HouseRobbery:BreakIn", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("HouseRobbery:BreakIn", function(source, data, cb)
 		if _robbers[_joiners[source]].state == 4 then
-			exports['pulsar-pwnzor']:TempPosIgnore(source)
-			local routeId = exports["pulsar-core"]:RequestRouteId(
-				"Robbery:Properties:" .. _robbers[_joiners[source]].property, false)
-			exports["pulsar-core"]:AddPlayerToRoute(source, routeId)
+			plsr.Pwnzor.Players:TempPosIgnore(source)
+			local routeId = plsr.Routing:RequestRouteId("Robbery:Properties:" .. _robbers[_joiners[source]].property, false)
+			plsr.Routing:AddPlayerToRoute(source, routeId)
 			GlobalState[string.format("%s:RobbingHouse", source)] = data
 
 			local intr = HouseRobberyInteriors[_robbers[_joiners[source]].tier]
-			exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-				string.format("HouseRobbery:Client:%s:InnerStuff", _joiners[source]), intr)
+			plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("HouseRobbery:Client:%s:InnerStuff", _joiners[source]), intr)
 
-			Player(source).state.tpLocation = {
+			plsr.State:Player(source).tpLocation = {
 				x = _robbers[_joiners[source]].coords.x,
 				y = _robbers[_joiners[source]].coords.y,
 				z = _robbers[_joiners[source]].coords.z,
@@ -202,8 +334,7 @@ AddEventHandler("Labor:Server:Startup", function()
 					and not _robbers[_joiners[source]].nodes.states.alarm.triggered
 				)
 			then
-				exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-					string.format("HouseRobbery:Client:%s:AlarmTriggered", _joiners[source]))
+				plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("HouseRobbery:Client:%s:AlarmTriggered", _joiners[source]))
 			end
 
 			_robbers[_joiners[source]].inside += 1
@@ -214,33 +345,33 @@ AddEventHandler("Labor:Server:Startup", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("HouseRobbery:Exit", function(source, data, cb)
-		exports['pulsar-pwnzor']:TempPosIgnore(source)
+	plsr.Callbacks:RegisterServerCallback("HouseRobbery:Exit", function(source, data, cb)
+		plsr.Pwnzor.Players:TempPosIgnore(source)
 		local intr = nil
 		if _joiners[source] and _robbers[_joiners[source]] then
 			intr = HouseRobberyInteriors[_robbers[_joiners[source]].tier]
 		end
 
 		cb(GlobalState[string.format("%s:RobbingHouse", source)], intr)
-		exports["pulsar-core"]:RoutePlayerToGlobalRoute(source)
+		plsr.Routing:RoutePlayerToGlobalRoute(source)
 
 		Wait(300)
 
 		if _joiners[source] ~= nil and _robbers[_joiners[source]] ~= nil and _robbers[_joiners[source]].state == 5 then
-			if exports['pulsar-labor']:UpdateOffer(_joiners[source], _JOB, 1, true) then
+			if plsr.Labor.Offers:Update(_joiners[source], _JOB, 1, true) then
 				_robbers[_joiners[source]].state = 6
 				Wait(1000)
-				exports['pulsar-labor']:ManualFinishOffer(_joiners[source], _JOB)
+				plsr.Labor.Offers:ManualFinish(_joiners[source], _JOB)
 			end
 		elseif _joiners[source] ~= nil and _robbers[_joiners[source]] ~= nil and _robbers[_joiners[source]].state == 4 then
 			_robbers[_joiners[source]].inside -= 1
 		end
 
-		Player(source).state.tpLocation = nil
+		plsr.State:Player(source).tpLocation = nil
 		GlobalState[string.format("%s:RobbingHouse", source)] = nil
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("HouseRobbery:HackAlarm", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("HouseRobbery:HackAlarm", function(source, data, cb)
 		if
 			_joiners[source] ~= nil
 			and _robbers[_joiners[source]] ~= nil
@@ -252,26 +383,23 @@ AddEventHandler("Labor:Server:Startup", function()
 		then
 			if data.state then
 				_robbers[_joiners[source]].nodes.states.alarm.disabled = true
-				exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-					string.format("HouseRobbery:Client:%s:AlarmHacked", _joiners[source]))
+				plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("HouseRobbery:Client:%s:AlarmHacked", _joiners[source]))
 			else
 				_robbers[_joiners[source]].nodes.states.alarm.triggered = true
-				exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-					string.format("HouseRobbery:Client:%s:AlarmTriggered", _joiners[source]))
+				plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("HouseRobbery:Client:%s:AlarmTriggered", _joiners[source]))
 
-				exports['pulsar-robbery']:TriggerPDAlert(source, _robbers[_joiners[source]].coords, "10-90",
-					"House Alarm", {
-						icon = 374,
-						size = 0.9,
-						color = 31,
-						duration = (60 * 5),
-					})
+				plsr.Robbery:TriggerPDAlert(source, _robbers[_joiners[source]].coords, "10-90", "House Alarm", {
+					icon = 374,
+					size = 0.9,
+					color = 31,
+					duration = (60 * 5),
+				})
 			end
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("HouseRobbery:Search", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("HouseRobbery:Search", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if
 			char:GetData("TempJob") == _JOB
 			and _joiners[source] ~= nil
@@ -280,201 +408,52 @@ AddEventHandler("Labor:Server:Startup", function()
 			and not _robbers[_joiners[source]].nodes.searched[data]
 		then
 			_robbers[_joiners[source]].nodes.searched[data] = true
-			exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-				string.format("HouseRobbery:Client:%s:Action", _joiners[source]),
-				data)
+			plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("HouseRobbery:Client:%s:Action", _joiners[source]), data)
 
 			local intr = HouseRobberyInteriors[_robbers[_joiners[source]].tier]
 			if intr?.robberies?.locations then
 				local lootType = intr.robberies.locations[data] and intr.robberies.locations[data].type or "standard"
 				local lootTable = _loot[lootType] or _loot["standard"]
-				exports.ox_inventory:LootCustomWeightedSetWithCount(lootTable, char:GetData("SID"), 1)
+				plsr.Loot:CustomWeightedSetWithCount(lootTable, char:GetData("SID"), 1)
 
 				if math.random(100) <= 5 then
-					exports.ox_inventory:AddItem(source, "safecrack_kit", 1, {}, 1)
+					plsr.Inventory:AddItem(char:GetData("SID"), "safecrack_kit", 1, {}, 1)
 				end
 			end
 
-			if exports['pulsar-labor']:UpdateOffer(_joiners[source], _JOB, 1, true) then
+			if plsr.Labor.Offers:Update(_joiners[source], _JOB, 1, true) then
 				_robbers[_joiners[source]].state = 5
-				exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-					string.format("HouseRobbery:Client:%s:EndRobbery", _joiners[source]))
+				plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("HouseRobbery:Client:%s:EndRobbery", _joiners[source]))
 				if _robbers[_joiners[source]].isWorkgroup then
-					exports['pulsar-labor']:StartOffer(_joiners[source], _JOB, "Leave The House",
-						_robbrs[_joiners[source]].inside)
+					plsr.Labor.Offers:Start(_joiners[source], _JOB, "Leave The House", _robbers[_joiners[source]].inside)
 				else
-					exports['pulsar-labor']:StartOffer(_joiners[source], _JOB, "Leave The House", 1)
+					plsr.Labor.Offers:Start(_joiners[source], _JOB, "Leave The House", 1)
 				end
 			end
 		end
 	end)
-end)
-
-function RegisterItems()
-	exports.ox_inventory:RegisterUse("lockpick", "Robbery", function(source, slot, itemData)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
-
-		if
-			char
-			and char:GetData("TempJob") == _JOB
-			and _joiners[source] ~= nil
-			and _robbers[_joiners[source]] ~= nil
-			and _robbers[_joiners[source]].state == 2
-		then
-			if GetVehiclePedIsIn(GetPlayerPed(source)) == 0 then
-				local dist = #(GetEntityCoords(GetPlayerPed(source)) - vector3(_robbers[_joiners[source]].coords.x, _robbers[_joiners[source]].coords.y, _robbers[_joiners[source]].coords.z))
-
-				if dist <= 3.0 then
-					if s ~= nil and s > os.time() then
-						exports['pulsar-hud']:Notification(source, "error",
-							"You Notice The Door Lock Has Been Damaged",
-							6000
-						)
-					else
-						_robbers[_joiners[source]].state = 3
-						exports["pulsar-core"]:ClientCallback(
-							source,
-							"HouseRobbery:Lockpick",
-							{ property = _robbers[_joiners[source]].property, tier = _robbers[_joiners[source]].tier },
-							function(success)
-								local newValue = slot.CreateDate - (60 * 60 * 24)
-								if success then
-									newValue = slot.CreateDate - (60 * 60 * 12)
-								end
-								if (os.time() - itemData.durability >= newValue) then
-									exports.ox_inventory:RemoveId(slot.Owner, slot.invType, slot)
-								else
-									exports.ox_inventory:SetItemCreateDate(slot.id, newValue)
-								end
-
-								local tier = _robbers[_joiners[source]].tier
-								if success then
-									exports['pulsar-status']:Add(source, "PLAYER_STRESS", tier)
-									exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-										string.format("HouseRobbery:Client:%s:Lockpicked", _joiners[source]),
-										_robbers[_joiners[source]].nodes)
-
-									exports['pulsar-labor']:StartOffer(
-										_joiners[source],
-										_JOB,
-										"Search Areas",
-										#HouseRobberyInteriors[tier].robberies.locations
-									)
-
-									if _robbers[_joiners[source]].nodes.chances.alarm then
-										StartAlarmCheck(_joiners[source])
-									end
-
-									_robbers[_joiners[source]].state = 4
-								else
-									_robbers[_joiners[source]].state = 2
-									exports['pulsar-status']:Add(source, "PLAYER_STRESS", tier * 2)
-								end
-							end
-						)
-					end
-				end
-			else
-			end
-		end
-	end)
-
-	exports.ox_inventory:RegisterUse("adv_lockpick", "Robbery", function(source, slot, itemData)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
-
-		if
-			char
-			and char:GetData("TempJob") == _JOB
-			and _joiners[source] ~= nil
-			and _robbers[_joiners[source]] ~= nil
-			and _robbers[_joiners[source]].state == 2
-		then
-			if GetVehiclePedIsIn(GetPlayerPed(source)) == 0 then
-				local dist = #(GetEntityCoords(GetPlayerPed(source)) - vector3(_robbers[_joiners[source]].coords.x, _robbers[_joiners[source]].coords.y, _robbers[_joiners[source]].coords.z))
-
-				if dist <= 3.0 then
-					if s ~= nil and s > os.time() then
-						exports['pulsar-hud']:Notification(source, "error",
-							"You Notice The Door Lock Has Been Damaged",
-							6000
-						)
-					else
-						_robbers[_joiners[source]].state = 3
-						exports["pulsar-core"]:ClientCallback(
-							source,
-							"HouseRobbery:AdvLockpick",
-							{ property = _robbers[_joiners[source]].property, tier = _robbers[_joiners[source]].tier },
-							function(success)
-								local newValue = slot.CreateDate - (60 * 60 * 24)
-								if success then
-									newValue = slot.CreateDate - (60 * 60 * 12)
-								end
-								if (os.time() - itemData.durability >= newValue) then
-									exports.ox_inventory:RemoveId(slot.Owner, slot.invType, slot)
-								else
-									exports.ox_inventory:SetItemCreateDate(slot.id, newValue)
-								end
-
-								local tier = _robbers[_joiners[source]].tier
-								if success then
-									exports['pulsar-status']:Add(source, "PLAYER_STRESS", tier)
-									exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-										string.format("HouseRobbery:Client:%s:Lockpicked", _joiners[source]),
-										_robbers[_joiners[source]].nodes)
-
-									exports['pulsar-labor']:StartOffer(
-										_joiners[source],
-										_JOB,
-										"Search Areas",
-										#HouseRobberyInteriors[tier].robberies.locations
-									)
-
-									if _robbers[_joiners[source]].nodes.chances.alarm then
-										StartAlarmCheck(_joiners[source])
-									end
-
-									_robbers[_joiners[source]].state = 4
-								else
-									_robbers[_joiners[source]].state = 2
-									exports['pulsar-status']:Add(source, "PLAYER_STRESS", tier * 2)
-								end
-							end
-						)
-					end
-				end
-			else
-			end
-		end
-	end)
-end
-
-RegisterNetEvent('ox_inventory:ready', function()
-	if GetResourceState(GetCurrentResourceName()) == 'started' then
-		RegisterItems()
-	end
 end)
 
 AddEventHandler("Labor:Server:HouseRobbery:Breach", function(source, house)
 	local h = GlobalState[string.format("Robbery:InProgress:%s", house)]
 	if h then
 		local hData = HouseRobberyProperties[house]
-		exports['pulsar-pwnzor']:TempPosIgnore(source)
+		plsr.Pwnzor.Players:TempPosIgnore(source)
 
-		local routeId = exports["pulsar-core"]:RequestRouteId("Robbery:Properties:" .. house, false)
-		exports["pulsar-core"]:AddPlayerToRoute(source, routeId)
+		local routeId = plsr.Routing:RequestRouteId("Robbery:Properties:" .. house, false)
+		plsr.Routing:AddPlayerToRoute(source, routeId)
 
 		GlobalState[string.format("%s:RobbingHouse", source)] = house
 
 		local intr = HouseRobberyInteriors[hData.tier]
 
-		Player(source).state.tpLocation = {
+		plsr.State:Player(source).tpLocation = {
 			x = hData.coords.x,
 			y = hData.coords.y,
 			z = hData.coords.z,
 		}
 
-		TriggerClientEvent("HouseRobbery:Client:Breach", source, { x = intr.x, y = intr.y, z = intr.z, h = intr.h },
-			intr.exit)
+		TriggerClientEvent("HouseRobbery:Client:Breach", source, { x = intr.x, y = intr.y, z = intr.z, h = intr.h }, intr.exit)
 	end
 end)
 
@@ -497,6 +476,7 @@ AddEventHandler("Labor:Server:HouseRobbery:Queue", function(source, data)
 		end
 
 		while house == nil or _inProgress[house] ~= nil do
+
 			local rand = math.random(#HouseRobberyProperties)
 			local d = HouseRobberyProperties[rand]
 
@@ -532,7 +512,7 @@ AddEventHandler("Labor:Server:HouseRobbery:Queue", function(source, data)
 		end
 
 		local exp = os.time() + (60 * 45) - pdo
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char ~= nil then
 			_cooldowns[_robbers[source].tier][char:GetData("ID")] = exp
 		end
@@ -575,17 +555,17 @@ AddEventHandler("Labor:Server:HouseRobbery:Queue", function(source, data)
 				true,
 				true
 			)
-			local id = exports["pulsar-core"]:RequestRouteId(string.format("Robbery:Properties:%s", house))
+			local fuckme = plsr.Routing:RequestRouteId(string.format("Robbery:Properties:%s", house))
 
 			local w = Weapons[math.random(#Weapons)]
 
 			GiveWeaponToPed(p, w, 250, false, true)
 			SetCurrentPedWeapon(p, w, true)
-			SetEntityRoutingBucket(p, id)
+			SetEntityRoutingBucket(p, fuckme)
 			SetPedArmour(p, 200)
 			TaskCombatPed(p, GetPlayerPed(source), 0, 16)
 
-			-- exports['pulsar-robbery']:TriggerPDAlert(joiner, intr.locations.front, "000", "House Alarm", {
+			-- plsr.Robbery:TriggerPDAlert(joiner, intr.locations.front, "000", "House Alarm", {
 			-- 	icon = 374,
 			-- 	size = 0.9,
 			-- 	color = 31,
@@ -601,7 +581,7 @@ AddEventHandler("Labor:Server:HouseRobbery:Queue", function(source, data)
 
 		_robbers[_joiners[source]].nodes = t
 
-		exports['pulsar-phone']:NotificationAdd(
+		plsr.Phone.Notification:Add(
 			_robbers[_joiners[source]].joiner,
 			"Job Activity",
 			"You've Received A Contract",
@@ -613,7 +593,7 @@ AddEventHandler("Labor:Server:HouseRobbery:Queue", function(source, data)
 		if _robbers[_joiners[source]].isWorkgroup then
 			if #_robbers[_joiners[source]].members > 0 then
 				for k, v in ipairs(_robbers[_joiners[source]].members) do
-					exports['pulsar-phone']:NotificationAdd(
+					plsr.Phone.Notification:Add(
 						v.ID,
 						"Job Activity",
 						"You've Received A Contract",
@@ -627,33 +607,31 @@ AddEventHandler("Labor:Server:HouseRobbery:Queue", function(source, data)
 		end
 
 		_offers[_joiners[source]].noExpire = false
-		exports['pulsar-labor']:TaskOffer(_joiners[source], _JOB, "Go To The Location")
-		exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-			string.format("HouseRobbery:Client:%s:Receive", _joiners[source]),
-			house, pData)
+		plsr.Labor.Offers:Task(_joiners[source], _JOB, "Go To The Location")
+		plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("HouseRobbery:Client:%s:Receive", _joiners[source]), house, pData)
 	end
 
-	exports['pulsar-core']:WaitListInteractRemove("houserobbery", source)
+	plsr.WaitList.Interact:Remove("houserobbery", source)
 end)
 
 AddEventHandler("HouseRobbery:Server:OnDuty", function(joiner, members, isWorkgroup)
-	local char = exports['pulsar-characters']:FetchCharacterSource(joiner)
+	local char = plsr.Fetch:CharacterSource(joiner)
 
 	if char == nil then
-		exports['pulsar-labor']:CancelOffer(joiner, _JOB)
-		exports['pulsar-labor']:OffDuty(_JOB, joiner, false, true)
+		plsr.Labor.Offers:Cancel(joiner, _JOB)
+		plsr.Labor.Duty:Off(_JOB, joiner, false, true)
 		return
 	end
 
-	local level = exports['pulsar-characters']:RepGetLevel(joiner, "HouseRobbery") + 1
+	local level = plsr.Reputation:GetLevel(joiner, "HouseRobbery") + 1
 	while (_cooldowns[level][char:GetData("ID")] or 0) > os.time() and level > 1 do
 		level = level - 1
 	end
 
 	if (_cooldowns[level][char:GetData("ID")] or 0) > os.time() and level == 1 then
-		exports['pulsar-labor']:CancelOffer(joiner, _JOB)
-		exports['pulsar-labor']:OffDuty(_JOB, joiner, false, true)
-		exports['pulsar-phone']:NotificationAdd(
+		plsr.Labor.Offers:Cancel(joiner, _JOB)
+		plsr.Labor.Duty:Off(_JOB, joiner, false, true)
+		plsr.Phone.Notification:Add(
 			joiner,
 			"Job Activity",
 			"You're Not Eligible For Any Available Contracts",
@@ -665,7 +643,7 @@ AddEventHandler("HouseRobbery:Server:OnDuty", function(joiner, members, isWorkgr
 		if isWorkgroup then
 			if #members > 0 then
 				for k, v in ipairs(members) do
-					exports['pulsar-phone']:NotificationAdd(
+					plsr.Phone.Notification:Add(
 						v.ID,
 						"Job Activity",
 						"Your Group Is Not Eligible For Any Available Contracts. Please Wait",
@@ -681,11 +659,11 @@ AddEventHandler("HouseRobbery:Server:OnDuty", function(joiner, members, isWorkgr
 	elseif isWorkgroup then
 		if #members > 0 then
 			for k, v in ipairs(members) do
-				local gChar = exports['pulsar-characters']:FetchCharacterSource(v.ID)
+				local gChar = plsr.Fetch:CharacterSource(v.ID)
 				if (_cooldowns[level][v.CharID] or 0) > os.time() and level == 1 then
-					exports['pulsar-labor']:CancelOffer(joiner, _JOB)
-					exports['pulsar-labor']:OffDuty(_JOB, joiner, false, true)
-					exports['pulsar-phone']:NotificationAdd(
+					plsr.Labor.Offers:Cancel(joiner, _JOB)
+					plsr.Labor.Duty:Off(_JOB, joiner, false, true)
+					plsr.Phone.Notification:Add(
 						joiner,
 						"Job Activity",
 						"Your Group Is Not Eligible For Any Available Contracts. Please Wait",
@@ -698,7 +676,7 @@ AddEventHandler("HouseRobbery:Server:OnDuty", function(joiner, members, isWorkgr
 						if #members > 0 then
 							for k2, v2 in ipairs(members) do
 								if v.ID == v2.ID then
-									exports['pulsar-phone']:NotificationAdd(
+									plsr.Phone.Notification:Add(
 										v2.ID,
 										"Job Activity",
 										"You're Not Eligible For Any Available Contracts. Please Wait",
@@ -708,7 +686,7 @@ AddEventHandler("HouseRobbery:Server:OnDuty", function(joiner, members, isWorkgr
 										{}
 									)
 								else
-									exports['pulsar-phone']:NotificationAdd(
+									plsr.Phone.Notification:Add(
 										v2.ID,
 										"Job Activity",
 										"Your Group Is Not Eligible For Any Available Contracts. Please Wait",
@@ -740,24 +718,24 @@ AddEventHandler("HouseRobbery:Server:OnDuty", function(joiner, members, isWorkgr
 	char:SetData("TempJob", _JOB)
 	TriggerClientEvent("HouseRobbery:Client:OnDuty", joiner, joiner, os.time())
 
-	exports['pulsar-labor']:TaskOffer(joiner, _JOB, "Wait For A Contract")
+	plsr.Labor.Offers:Task(joiner, _JOB, "Wait For A Contract")
 	_offers[joiner].noExpire = true
 	if #members > 0 then
 		for k, v in ipairs(members) do
 			_joiners[v.ID] = joiner
-			local member = exports['pulsar-characters']:FetchCharacterSource(v.ID)
+			local member = plsr.Fetch:CharacterSource(v.ID)
 			member:SetData("TempJob", _JOB)
 			TriggerClientEvent("HouseRobbery:Client:OnDuty", v.ID, joiner, os.time())
 		end
 	end
 
-	exports['pulsar-core']:WaitListInteractAdd("houserobbery", joiner, {
+	plsr.WaitList.Interact:Add("houserobbery", joiner, {
 		joiner = joiner,
 	})
 end)
 
 AddEventHandler("HouseRobbery:Server:OffDuty", function(source, joiner)
-	exports['pulsar-core']:WaitListInteractRemove("houserobbery", _joiners[source])
+	plsr.WaitList.Interact:Remove("houserobbery", _joiners[source])
 	_joiners[source] = nil
 	TriggerClientEvent("HouseRobbery:Client:OffDuty", source)
 end)

@@ -18,118 +18,87 @@ RegisterNetEvent("Prison:Client:OnDuty", function(joiner, time)
 		for k, v in ipairs(_nodes.locations) do
 			local id = string.format("PrisonNode%s", v.data.id)
 
-			exports["pulsar-blips"]:Add(id, data.blip.name, v.coords, data.blip.sprite or 188, data.blip.color or 56,
-				0.8)
-            if v.type == "box" then
-                exports.ox_target:addBoxZone({
-                    name = id,
-                    coords = v.coords,
-                    size = vector3(v.length, v.width, 2.0),
-                    rotation = v.options.heading or 0,
-                    debug = false,
-                    minZ = v.options.minZ,
-                    maxZ = v.options.maxZ,
-                    options = {
-                        {
-                            icon = "fa-solid fa-hand-pointer",
-                            label = data.action,
-                            data = v.data,
-                            onSelect = function(opt)
-                                local d = opt and opt.data or opt
-                                if not d then return end
-                                TriggerEvent(string.format("Labor:Client:%s:Action", joiner), d)
-                            end,
-                            canInteract = function(data)
-                                return _working and _state == 1
-                            end,
-                        },
-                    }
-                })
-            elseif v.type == "circle" then
-                exports.ox_target:addSphereZone({
-                    name = id,
-                    coords = v.coords,
-                    radius = v.radius,
-                    debug = false,
-                    options = {
-                        {
-                            icon = "fa-solid fa-hand-pointer",
-                            label = data.action,
-                            data = v.data,
-                            onSelect = function(opt)
-                                local d = opt and opt.data or opt
-                                if not d then return end
-                                TriggerEvent(string.format("Labor:Client:%s:Action", joiner), d)
-                            end,
-                            canInteract = function(data)
-                                return _working and _state == 1
-                            end,
-                        },
-                    }
-                })
-            elseif v.type == "poly" then
-                exports.ox_target:addPolyZone({
-                    name = id,
-                    points = v.points,
-                    debug = false,
-                    options = {
-                        {
-                            icon = "fa-solid fa-hand-pointer",
-                            label = data.action,
-                            data = v.data,
-                            onSelect = function(opt)
-                                local d = opt and opt.data or opt
-                                if not d then return end
-                                TriggerEvent(string.format("Labor:Client:%s:Action", joiner), d)
-                            end,
-                            canInteract = function(data)
-                                return _working and _state == 1
-                            end,
-                        },
-                    }
-                })
-            end
+			plsr.Blips:Add(id, data.blip.name, v.coords, data.blip.sprite or 188, data.blip.color or 56, 0.8)
+			if v.type == "box" then
+				plsr.Targeting.Zones:AddBox(id, "boxes-packing", v.coords, v.length, v.width, v.options, {
+					{
+						icon = "hand-middle-finger",
+						text = data.action,
+						event = string.format("Labor:Client:%s:Action", joiner),
+						data = v.data,
+                        tempjob = "Prison",
+						isEnabled = function(data)
+							return _working and _state == 1
+						end,
+					},
+				}, 3.0, true)
+			elseif v.type == "circle" then
+				plsr.Targeting.Zones:AddCircle(id, "boxes-packing", v.coords, v.radius, v.options, {
+					{
+						icon = "hand-middle-finger",
+						text = data.action,
+						event = string.format("Labor:Client:%s:Action", joiner),
+						data = v.data,
+                        tempjob = "Prison",
+						isEnabled = function(data)
+							return _working and _state == 1
+						end,
+					},
+				}, 3.0, true)
+			elseif v.type == "poly" then
+				plsr.Targeting.Zones:AddPoly(id, "boxes-packing", v.points, v.options, {
+					{
+						icon = "hand-middle-finger",
+						text = data.action,
+						event = string.format("Labor:Client:%s:Action", joiner),
+						data = v.data,
+                        tempjob = "Prison",
+						isEnabled = function(data)
+							return _working and _state == 1
+						end,
+					},
+				}, 3.0, true)
+			end
+		end
 
-        end
-    end)
+        plsr.Targeting.Zones:Refresh()
+	end)
 
-    eventHandlers["action"] = AddEventHandler(string.format("Labor:Client:%s:Action", joiner), function(data)
-        exports['pulsar-hud']:Progress({
-            name = "prison_action",
-            duration = data.duration,
-            label = data.label,
-            useWhileDead = false,
-            canCancel = true,
-            controlDisables = {
-                disableMovement = true,
-                disableCarMovement = true,
-                disableMouse = false,
-                disableCombat = true,
-            },
-            animation = data.animation,
-        }, function(status)
-            if not status then
-                exports["pulsar-core"]:ServerCallback("Prison:Action", data.id, function(s)
-                    local id = string.format("PrisonNode%s", data.id)
-                    if exports.ox_target:zoneExists(id) then
-                        exports.ox_target:removeZone(id)
-                    end
-                    exports["pulsar-blips"]:Remove(id)
-                end)
-            end
-        end)
-    end)
+	eventHandlers["action"] = AddEventHandler(string.format("Labor:Client:%s:Action", joiner), function(ent, data)
+		plsr.Progress:Progress({
+			name = "prison_action",
+			duration = data.duration,
+			label = data.label,
+			useWhileDead = false,
+			canCancel = true,
+			controlDisables = {
+				disableMovement = true,
+				disableCarMovement = true,
+				disableMouse = false,
+				disableCombat = true,
+			},
+			animation = data.animation,
+		}, function(status)
+			if not status then
+				plsr.Callbacks:ServerCallback("Prison:Action", data.id, function(s)
+					local id = string.format("PrisonNode%s", data.id)
+					plsr.Targeting.Zones:RemoveZone(id)
+					plsr.Blips:Remove(id)
+                    plsr.Targeting.Zones:Refresh()
+				end)
+			end
+		end)
+	end)
 
 	eventHandlers["cleanup"] = AddEventHandler(string.format("Labor:Client:%s:Cleanup", joiner), function()
-        if _nodes ~= nil then
-            for k, v in ipairs(_nodes.locations) do
-                local id = string.format("PrisonNode%s", v.data.id)
-                if exports.ox_target:zoneExists(id) then
-                    exports.ox_target:removeZone(id)
-                end
-                exports["pulsar-blips"]:Remove(id)
-            end
-        end
+		if _nodes ~= nil then
+			for k, v in ipairs(_nodes.locations) do
+				local id = string.format("PrisonNode%s", v.id)
+				plsr.Targeting.Zones:RemoveZone(id)
+				plsr.Blips:Remove(id)
+			end
+            plsr.Targeting.Zones:Refresh()
+		end
 
 		_nodes = nil
 		_state = 0
@@ -137,9 +106,9 @@ RegisterNetEvent("Prison:Client:OnDuty", function(joiner, time)
 end)
 
 AddEventHandler("Prison:Client:StartJob", function()
-	exports["pulsar-core"]:ServerCallback("Prison:StartJob", _joiner, function(state)
+	plsr.Callbacks:ServerCallback("Prison:StartJob", _joiner, function(state)
 		if not state then
-			exports["pulsar-hud"]:Notification("error", "Unable To Start Job")
+			plsr.Notification:Error("Unable To Start Job")
 		end
 	end)
 end)
@@ -149,15 +118,14 @@ RegisterNetEvent("Prison:Client:OffDuty", function(time)
 		RemoveEventHandler(v)
 	end
 
-    if _nodes ~= nil then
-        for k, v in ipairs(_nodes.locations) do
-            local id = string.format("PrisonNode%s", v.data.id)
-            if exports.ox_target:zoneExists(id) then
-                exports.ox_target:removeZone(id)
-            end
-            exports["pulsar-blips"]:Remove(id)
-        end
-    end
+	if _nodes ~= nil then
+		for k, v in ipairs(_nodes.locations) do
+			local id = string.format("PrisonNode%s", v.id)
+			plsr.Targeting.Zones:RemoveZone(id)
+			plsr.Blips:Remove(id)
+		end
+        plsr.Targeting.Zones:Refresh()
+	end
 
 	_joiner = nil
 	_working = false

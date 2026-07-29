@@ -93,11 +93,11 @@ local _jewelryPrices = {
 }
 
 local _jewelryItems = {
-	{ item = "rolex",     ratio = 0.5 },
-	{ item = "watch",     ratio = 0.5 },
-	{ item = "chain",     ratio = 0.5 },
-	{ item = "earrings",  ratio = 0.5 },
-	{ item = "ring",      ratio = 0.5 },
+	{ item = "rolex", ratio = 0.5 },
+	{ item = "watch", ratio = 0.5 },
+	{ item = "chain", ratio = 0.5 },
+	{ item = "earrings", ratio = 0.5 },
+	{ item = "ring", ratio = 0.5 },
 	{ item = "goldcoins", ratio = 0.5 },
 }
 
@@ -106,11 +106,11 @@ local _pawnItems = {
 }
 
 AddEventHandler("Labor:Server:Startup", function()
-	exports["pulsar-core"]:RegisterServerCallback("Garbage:StartJob", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Garbage:StartJob", function(source, data, cb)
 		if _Garbage[data] ~= nil and _Garbage[data].state == 0 then
 			_Garbage[data].state = 1
-			exports['pulsar-labor']:TaskOffer(_joiners[source], _JOB, "Grab a garbage truck")
-			exports['pulsar-labor']:SendWorkgroupEvent(data, string.format("Garbage:Client:%s:Startup", data))
+			plsr.Labor.Offers:Task(_joiners[source], _JOB, "Grab a garbage truck")
+			plsr.Labor.Workgroups:SendEvent(data, string.format("Garbage:Client:%s:Startup", data))
 			cb(true)
 		else
 			cb(false)
@@ -118,7 +118,7 @@ AddEventHandler("Labor:Server:Startup", function()
 	end)
 
 	local _isSpawningTruck = false
-	exports["pulsar-core"]:RegisterServerCallback("Garbage:GarbageSpawn", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Garbage:GarbageSpawn", function(source, data, cb)
 		if _isSpawningTruck then
 			cb(false)
 			return
@@ -129,100 +129,92 @@ AddEventHandler("Labor:Server:Startup", function()
 			and _Garbage[_joiners[source]].state == 1
 		then
 			_isSpawningTruck = true
-			exports['pulsar-vehicles']:SpawnTemp(source, `trash2`, 'automobile', vector3(-334.989, -1562.966, 25.230),
-				57.510,
-				function(veh, VIN)
-					exports['pulsar-vehicles']:KeysAdd(source, VIN)
-					_Garbage[_joiners[source]].truck = veh
-					local availRoutes = {}
-					for k, v in ipairs(_GarbageRoutes) do
-						table.insert(availRoutes, k)
-					end
-					local randRoute = math.random(#availRoutes)
-					_Garbage[_joiners[source]].route = deepcopy(_GarbageRoutes[availRoutes[randRoute]])
-					table.remove(availRoutes, randRoute)
-					_Garbage[_joiners[source]].routes = availRoutes
-					_Garbage[_joiners[source]].state = 2
-					exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-						string.format("Garbage:Client:%s:NewRoute", _joiners[source]), _Garbage[_joiners[source]].route)
-					exports['pulsar-labor']:StartOffer(
-						_joiners[source],
-						_JOB,
-						string.format("Collect Garbage In %s", _Garbage[_joiners[source]].route["location"]),
-						5
-					)
-					_isSpawningTruck = false
+			plsr.Vehicles:SpawnTemp(source, `trash2`, 'automobile', vector3(-334.989, -1562.966, 25.230), 57.510, function(veh, VIN)
+				plsr.Vehicles.Keys:Add(source, VIN)
+				_Garbage[_joiners[source]].truck = veh
+				local availRoutes = {}
+				for k, v in ipairs(_GarbageRoutes) do
+					table.insert(availRoutes, k)
+				end
+				local randRoute = math.random(#availRoutes)
+				_Garbage[_joiners[source]].route = deepcopy(_GarbageRoutes[availRoutes[randRoute]])
+				table.remove(availRoutes, randRoute)
+				_Garbage[_joiners[source]].routes = availRoutes
+				_Garbage[_joiners[source]].state = 2
+				plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("Garbage:Client:%s:NewRoute", _joiners[source]), _Garbage[_joiners[source]].route)
+				plsr.Labor.Offers:Start(
+					_joiners[source],
+					_JOB,
+					string.format("Collect Garbage In %s", _Garbage[_joiners[source]].route["location"]),
+					5
+				)
+				_isSpawningTruck = false
 
-					cb(veh)
-				end)
+				cb(veh)
+			end)
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Garbage:GarbageSpawnRemove", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Garbage:GarbageSpawnRemove", function(source, data, cb)
 		if _joiners[source] ~= nil and _Garbage[_joiners[source]].truck ~= nil then
 			if _Garbage[_joiners[source]].state == 3 then
 				local garCoords = GetEntityCoords(_Garbage[_joiners[source]].truck)
 				local pedCoords = GetEntityCoords(GetPlayerPed(source))
 				local distance = #(pedCoords - garCoords)
 				if distance <= 25 then
-					exports['pulsar-vehicles']:Delete(_Garbage[_joiners[source]].truck, function()
+					plsr.Vehicles:Delete(_Garbage[_joiners[source]].truck, function()
 						_Garbage[_joiners[source]].truck = nil
 						_Garbage[_joiners[source]].state = 4
-						exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-							string.format("Garbage:Client:%s:ReturnTruck", _joiners[source]))
-						exports['pulsar-labor']:TaskOffer(_joiners[source], _JOB, "Speak with the Sanitation Foreman")
+						plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("Garbage:Client:%s:ReturnTruck", _joiners[source]))
+						plsr.Labor.Offers:Task(_joiners[source], _JOB, "Speak with the Sanitation Foreman")
 					end)
 				else
-					exports['pulsar-hud']:Notification(source, "error", "Truck Needs To Be With You")
+					plsr.Execute:Client(source, "Notification", "Error", "Truck Needs To Be With You")
 				end
 			end
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Garbage:TrashGrab", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Garbage:TrashGrab", function(source, data, cb)
 		if _joiners[source] ~= nil and _Garbage[_joiners[source]].state == 2 then
-			exports["pulsar-core"]:ClientCallback(source, "Garbage:DoingSomeAction", "grabTrash")
-			exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-				string.format("Garbage:Client:%s:Action", _joiners[source]),
-				data)
+			plsr.Callbacks:ClientCallback(source, "Garbage:DoingSomeAction", "grabTrash")
+			plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("Garbage:Client:%s:Action", _joiners[source]), data)
 			cb(true)
 		else
 			cb(false)
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Garbage:TrashPutIn", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("Garbage:TrashPutIn", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		if char:GetData("TempJob") == _JOB and _joiners[source] ~= nil and _Garbage[_joiners[source]] ~= nil then
 			local luck = math.random(100)
 			if luck >= 80 then
-				exports.ox_inventory:LootCustomSet(_highClassLoot, char:GetData("SID"), 1, math.random(5, 20))
+				plsr.Loot:CustomSet(_highClassLoot, char:GetData("SID"), 1, math.random(5, 20))
 			elseif luck >= 50 then
-				exports.ox_inventory:LootCustomSet(_lootTable, char:GetData("SID"), 1, math.random(5, 20))
+				plsr.Loot:CustomSet(_lootTable, char:GetData("SID"), 1, math.random(5, 20))
 			end
-			exports.ox_inventory:AddItem(source, "recycledgoods", math.random(10), {}, 1)
+			plsr.Inventory:AddItem(char:GetData("SID"), "recycledgoods", math.random(10), {}, 1)
 
-			exports["pulsar-core"]:ClientCallback(source, "Garbage:DoingSomeAction", "trashPutIn")
-			if exports['pulsar-labor']:UpdateOffer(_joiners[source], _JOB, 1, true) then
+			plsr.Callbacks:ClientCallback(source, "Garbage:DoingSomeAction", "trashPutIn")
+			if plsr.Labor.Offers:Update(_joiners[source], _JOB, 1, true) then
 				if _Garbage[_joiners[source]].tasks <= 2 then
 					_Garbage[_joiners[source]].tasks = _Garbage[_joiners[source]].tasks + 1
 					local randRoute = math.random(#_Garbage[_joiners[source]].routes)
 					_Garbage[_joiners[source]].route =
 						deepcopy(_GarbageRoutes[_Garbage[_joiners[source]].routes[randRoute]])
 					table.remove(_Garbage[_joiners[source]].routes, randRoute)
-					exports['pulsar-labor']:StartOffer(
+					plsr.Labor.Offers:Start(
 						_joiners[source],
 						_JOB,
 						string.format("Collect Garbage In %s", _Garbage[_joiners[source]].route.location),
 						5
 					)
-					exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-						string.format("Garbage:Client:%s:NewRoute", _joiners[source]), _Garbage[_joiners[source]].route)
+					plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("Garbage:Client:%s:NewRoute", _joiners[source]), _Garbage[_joiners[source]].route)
 				else
 					_Garbage[_joiners[source]].state = 3
-					exports['pulsar-labor']:SendWorkgroupEvent(_joiners[source],
-						string.format("Garbage:Client:%s:EndRoutes", _joiners[source]))
-					exports['pulsar-labor']:TaskOffer(_joiners[source], _JOB, "Return your truck")
+					plsr.Labor.Workgroups:SendEvent(_joiners[source], string.format("Garbage:Client:%s:EndRoutes", _joiners[source]))
+					plsr.Labor.Offers:Task(_joiners[source], _JOB, "Return your truck")
 				end
 			end
 			cb(true)
@@ -231,70 +223,69 @@ AddEventHandler("Labor:Server:Startup", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Garbage:TurnIn", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Garbage:TurnIn", function(source, data, cb)
 		if _joiners[source] ~= nil and _Garbage[_joiners[source]].tasks >= 3 then
-			local char = exports['pulsar-characters']:FetchCharacterSource(source)
+			local char = plsr.Fetch:CharacterSource(source)
 			if char:GetData("TempJob") == _JOB and _Garbage[_joiners[source]].state == 4 then
 				_Garbage[_joiners[source]].state = 5
-				exports['pulsar-labor']:ManualFinishOffer(_joiners[source], _JOB)
+				plsr.Labor.Offers:ManualFinish(_joiners[source], _JOB)
 				cb(true)
 			else
-				exports['pulsar-hud']:Notification(source, "error", "Unable To Finish Job")
+				plsr.Execute:Client(source, "Notification", "Error", "Unable To Finish Job")
 				cb(false)
 			end
 		else
-			exports['pulsar-hud']:Notification(source, "error", "You've Not Completed All Routes")
+			plsr.Execute:Client(source, "Notification", "Error", "You've Not Completed All Routes")
 			cb(false)
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Garbage:Pawn:Sell", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
-		local repLvl = exports['pulsar-characters']:RepGetLevel(source, _JOB)
+	plsr.Callbacks:RegisterServerCallback("Garbage:Pawn:Sell", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
+		local repLvl = plsr.Reputation:GetLevel(source, _JOB)
 
 		if repLvl > 0 then
 			local money = 0
 			for k, v in ipairs(_jewelryItems) do
-				local count = exports.ox_inventory:ItemsGetCount(char:GetData("SID"), 1, v.item) or 0
+				local count = plsr.Inventory.Items:GetCount(char:GetData("SID"), 1, v.item) or 0
 				if count > 0 then
-					if exports.ox_inventory:Remove(char:GetData("SID"), 1, v.item, count) then
+					if plsr.Inventory.Items:Remove(char:GetData("SID"), 1, v.item, count) then
 						money = money + math.floor(_jewelryPrices[repLvl] * v.ratio) * count
 					end
 				end
 			end
 
 			if money > 0 then
-				exports['pulsar-finance']:WalletModify(source, money)
+				plsr.Wallet:Modify(source, money)
 			else
-				exports['pulsar-hud']:Notification(source, "error", "You Have Nothing To Sell")
+				plsr.Execute:Client(source, "Notification", "Error", "You Have Nothing To Sell")
 			end
 		else
-			exports['pulsar-hud']:Notification(source, "error",
-				"You're Not Trusted Enough To Do This Yet")
+			plsr.Execute:Client(source, "Notification", "Error", "You're Not Trusted Enough To Do This Yet")
 		end
 	end)
 
-	-- exports["pulsar-core"]:RegisterServerCallback("Gabage:Pawn:Buy", function(source, data, cb)
-	-- 	local char = exports['pulsar-characters']:FetchCharacterSource(source)
-	-- 	local repLvl = exports['pulsar-characters']:RepGetLevel(source, _JOB)
+	-- plsr.Callbacks:RegisterServerCallback("Gabage:Pawn:Buy", function(source, data, cb)
+	-- 	local char = plsr.Fetch:CharacterSource(source)
+	-- 	local repLvl = plsr.Reputation:GetLevel(source, _JOB)
 
 	-- 	if repLvl >= 3 then
 	-- 		cb(_pawnItems)
 	-- 	else
-	-- 		exports['pulsar-hud']:Notification(source, "error", "You're Not Trusted Enough To Do This Yet")
+	-- 		plsr.Execute:Client(source, "Notification", "Error", "You're Not Trusted Enough To Do This Yet")
 	-- 	end
 	-- end)
 
-	-- exports["pulsar-core"]:RegisterServerCallback("Garbage:Pawn:BuyLimited", function(source, data, cb)
-	-- 	local char = exports['pulsar-characters']:FetchCharacterSource(source)
-	-- 	local repLvl = exports['pulsar-characters']:RepGetLevel(source, _JOB)
+	-- plsr.Callbacks:RegisterServerCallback("Garbage:Pawn:BuyLimited", function(source, data, cb)
+	-- 	local char = plsr.Fetch:CharacterSource(source)
+	-- 	local repLvl = plsr.Reputation:GetLevel(source, _JOB)
 
 	-- 	if repLvl >= 3 then
 	-- 		if _pawnItems[data.index] and _pawnItems[data.index].qty > 0 then
-	-- 			if exports['pulsar-finance']:CryptoExchangeRemove(_pawnItems[data.index].coin, char:GetData("SID"), _pawnItems[data.index].price) then
+	-- 			if plsr.Crypto.Exchange:Remove(_pawnItems[data.index].coin, char:GetData("SID"), _pawnItems[data.index].price) then
 	-- 				_pawnItems[data.index].qty = _pawnItems[data.index].qty - 1
 
-	-- 				exports['pulsar-phone']:NotificationAdd(
+	-- 				plsr.Phone.Notification:Add(
 	-- 					source,
 	-- 					"Crypto Purchase",
 	-- 					string.format("You Paid %s $%s", _pawnItems[data.index].price, _pawnItems[data.index].coin),
@@ -304,15 +295,15 @@ AddEventHandler("Labor:Server:Startup", function()
 	-- 					{}
 	-- 				)
 
-	-- 				cb(exports.ox_inventory:AddItem(char:GetData("SID"), _pawnItems[data.index].item, 1, {}, 1))
+	-- 				cb(plsr.Inventory:AddItem(char:GetData("SID"), _pawnItems[data.index].item, 1, {}, 1))
 	-- 			else
-	-- 				exports['pulsar-hud']:Notification(source, "error", "Not Enough Crypto")
+	-- 				plsr.Execute:Client(source, "Notification", "Error", "Not Enough Crypto")
 	-- 			end
 	-- 		else
-	-- 			exports['pulsar-hud']:Notification(source, "error", "Item Not In Stock")
+	-- 			plsr.Execute:Client(source, "Notification", "Error", "Item Not In Stock")
 	-- 		end
 	-- 	else
-	-- 		exports['pulsar-hud']:Notification(source, "error", "You're Not Trusted Enough To Do This Yet")
+	-- 		plsr.Execute:Client(source, "Notification", "Error", "You're Not Trusted Enough To Do This Yet")
 	-- 	end
 	-- end)
 end)
@@ -327,20 +318,18 @@ AddEventHandler("Garbage:Server:OnDuty", function(joiner, members, isWorkgroup)
 		tasks = 0,
 	}
 
-	local char = exports['pulsar-characters']:FetchCharacterSource(joiner)
+	local char = plsr.Fetch:CharacterSource(joiner)
 	char:SetData("TempJob", _JOB)
-	exports['pulsar-phone']:NotificationAdd(joiner, "Job Activity", "You started a job", os.time(), 6000, "labor",
-		{})
+	plsr.Phone.Notification:Add(joiner, "Job Activity", "You started a job", os.time(), 6000, "labor", {})
 	TriggerClientEvent("Garbage:Client:OnDuty", joiner, joiner, os.time())
 
-	exports['pulsar-labor']:TaskOffer(joiner, _JOB, "Speak with the Sanitation Foreman")
+	plsr.Labor.Offers:Task(joiner, _JOB, "Speak with the Sanitation Foreman")
 	if #members > 0 then
 		for k, v in ipairs(members) do
 			_joiners[v.ID] = joiner
-			local member = exports['pulsar-characters']:FetchCharacterSource(v.ID)
+			local member = plsr.Fetch:CharacterSource(v.ID)
 			member:SetData("TempJob", _JOB)
-			exports['pulsar-phone']:NotificationAdd(v.ID, "Job Activity", "You started a job", os.time(), 6000,
-				"labor", {})
+			plsr.Phone.Notification:Add(v.ID, "Job Activity", "You started a job", os.time(), 6000, "labor", {})
 			TriggerClientEvent("Garbage:Client:OnDuty", v.ID, joiner, os.time())
 		end
 	end

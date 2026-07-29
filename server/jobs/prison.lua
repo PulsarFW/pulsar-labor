@@ -4,16 +4,16 @@ local _joiners = {}
 local _Prisoners = {}
 
 AddEventHandler("Labor:Server:Startup", function()
-	exports['pulsar-core']:WaitListCreate("prison", "individual_time", {
+	plsr.WaitList:Create("prison", "individual_time", {
 		event = "Labor:Server:Prison:Queue",
 		delay = 30000,
 	})
 
-	exports["pulsar-core"]:RegisterServerCallback("Prison:Action", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Prison:Action", function(source, data, cb)
 		if _joiners[source] ~= nil and _Prisoners[_joiners[source]] ~= nil then
-			local char = exports['pulsar-characters']:FetchCharacterSource(source)
+			local char = plsr.Fetch:CharacterSource(source)
 			if
-				exports['pulsar-labor']:UpdateOffer(_joiners[source], _JOB, 1, true, {
+				plsr.Labor.Offers:Update(_joiners[source], _JOB, 1, true, {
 					title = "Prison Labor",
 					label = "Prison",
 					icon = "link",
@@ -21,24 +21,27 @@ AddEventHandler("Labor:Server:Startup", function()
 				})
 			then
 				_Prisoners[_joiners[source]].state = 0
-				exports['pulsar-finance']:WalletModify(source, 150)
-				exports['pulsar-labor']:SendWorkgroupEvent(
+				plsr.Wallet:Modify(source, 150)
+				plsr.Labor.Workgroups:SendEvent(
 					_joiners[source],
 					string.format("Prison:Client:%s:Cleanup", _joiners[source])
 				)
-				exports['pulsar-labor']:TaskOffer(_joiners[source], _JOB, "Wait For Work", {
+				plsr.Labor.Offers:Task(_joiners[source], _JOB, "Wait For Work", {
 					title = "Prison Labor",
 					label = "Prison",
 					icon = "link",
 					color = "transparent",
 				})
 
-				if not exports['pulsar-jail']:IsReleaseEligible(source) then
-					local char = exports['pulsar-characters']:FetchCharacterSource(source)
+				if not plsr.Jail:IsReleaseEligible(source) then
+					local char = plsr.Fetch:CharacterSource(source)
 					local jailed = char:GetData("Jailed")
 					jailed.Release = jailed.Release - _Prisoners[_joiners[source]].nodes.timeReduce
 					char:SetData("Jailed", jailed)
-					exports['pulsar-hud']:Notification(source, "info",
+					plsr.Execute:Client(
+						source,
+						"Notification",
+						"Info",
 						string.format(
 							"Your Sentence Has Been Reduced By %s Months",
 							math.ceil(_Prisoners[_joiners[source]].nodes.timeReduce / 60)
@@ -46,24 +49,24 @@ AddEventHandler("Labor:Server:Startup", function()
 					)
 				end
 
-				exports['pulsar-core']:WaitListInteractInactive("prison", _joiners[source])
+				plsr.WaitList.Interact:Inactive("prison", _joiners[source])
 			end
 			cb(false)
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("Prison:TurnIn", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("Prison:TurnIn", function(source, data, cb)
 		if _joiners[source] ~= nil and _Prisoners[_joiners[source]].tasks >= 3 then
-			local char = exports['pulsar-characters']:FetchCharacterSource(source)
+			local char = plsr.Fetch:CharacterSource(source)
 			if char:GetData("TempJob") == _JOB then
-				exports['pulsar-labor']:ManualFinishOffer(_joiners[source], _JOB)
+				plsr.Labor.Offers:ManualFinish(_joiners[source], _JOB)
 				cb(true)
 			else
-				exports['pulsar-hud']:Notification(source, "error", "Unable To Finish Job")
+				plsr.Execute:Client(source, "Notification", "Error", "Unable To Finish Job")
 				cb(false)
 			end
 		else
-			exports['pulsar-hud']:Notification(source, "error", "You've Not Completed All Routes")
+			plsr.Execute:Client(source, "Notification", "Error", "You've Not Completed All Routes")
 			cb(false)
 		end
 	end)
@@ -82,12 +85,12 @@ AddEventHandler("Labor:Server:Prison:Queue", function(source, data)
 		_Prisoners[_joiners[source]].jobIndex = f
 		_Prisoners[_joiners[source]].nodes = deepcopy(_prisonJobs[f])
 
-		exports['pulsar-labor']:SendWorkgroupEvent(
+		plsr.Labor.Workgroups:SendEvent(
 			_joiners[source],
 			string.format("Prison:Client:%s:Receive", _joiners[source]),
 			_Prisoners[_joiners[source]].nodes
 		)
-		exports['pulsar-labor']:StartOffer(
+		plsr.Labor.Offers:Start(
 			_joiners[source],
 			_JOB,
 			_Prisoners[_joiners[source]].nodes.action,
@@ -112,18 +115,18 @@ AddEventHandler("Prison:Server:OnDuty", function(joiner, members, isWorkgroup)
 		state = 0,
 	}
 
-	local char = exports['pulsar-characters']:FetchCharacterSource(joiner)
+	local char = plsr.Fetch:CharacterSource(joiner)
 	char:SetData("TempJob", _JOB)
 
 	TriggerClientEvent("Prison:Client:OnDuty", joiner, joiner, os.time())
-	exports['pulsar-labor']:TaskOffer(joiner, _JOB, "Wait For Work", {
+	plsr.Labor.Offers:Task(joiner, _JOB, "Wait For Work", {
 		title = "Prison Labor",
 		label = "Prison",
 		icon = "link",
 		color = "transparent",
 	})
 
-	exports['pulsar-core']:WaitListInteractAdd("prison", joiner, {
+	plsr.WaitList.Interact:Add("prison", joiner, {
 		joiner = joiner,
 	})
 end)
@@ -131,7 +134,7 @@ end)
 AddEventHandler("Prison:Server:OffDuty", function(source, joiner)
 	_joiners[source] = nil
 	TriggerClientEvent("Prison:Client:OffDuty", source)
-	exports['pulsar-core']:WaitListInteractRemove("prison", source)
+	plsr.WaitList.Interact:Remove("prison", source)
 end)
 
 AddEventHandler("Prison:Server:FinishJob", function(joiner)

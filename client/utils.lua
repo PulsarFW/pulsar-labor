@@ -1,3 +1,4 @@
+
 function loadModel(model)
 	if IsModelInCdimage(model) then
 		while not HasModelLoaded(model) do
@@ -8,10 +9,10 @@ function loadModel(model)
 end
 
 function loadAnim(dict)
-	while not HasAnimDictLoaded(dict) do
-		RequestAnimDict(dict)
-		Wait(10)
-	end
+    while not HasAnimDictLoaded(dict) do
+        RequestAnimDict(dict)
+        Wait(10)
+    end
 end
 
 function hasValue(tbl, value)

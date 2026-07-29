@@ -4,18 +4,56 @@ local _joiners = {}
 local _sellers = {}
 
 AddEventHandler("Labor:Server:Startup", function()
-	exports['pulsar-core']:WaitListCreate("weedrun", "individual_time", {
+	plsr.WaitList:Create("weedrun", "individual_time", {
 		event = "Labor:Server:WeedRun:Queue",
 		delay = (1000 * 60) * 3,
 	})
 
-	exports["pulsar-core"]:RegisterServerCallback("WeedRun:Enable", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Crafting:RegisterBench("WeedPackaging", "Weed Processing", {
+		actionString = "Packaging",
+		icon = "cannabis",
+		poly = {
+			coords = vector3(1056.47, -2450.58, 23.29),
+			w = 2.8,
+			l = 1.0,
+			options = {
+				name = "WeedPackaging",
+				heading = 0,
+				--debugPoly=true,
+				minZ = 21.89,
+				maxZ = 24.29,
+			},
+		},
+	}, {}, {
+		shared = true,
+	}, {
+		{
+			result = { name = "weed_brick", count = 1 },
+			items = {
+				{ name = "plastic_wrap", count = 2 },
+				{ name = "weed_bud", count = 200 },
+			},
+			time = 8000,
+			animation = "mechanic",
+		},
+		{
+			result = { name = "weed_baggy", count = 1 },
+			items = {
+				{ name = "baggy", count = 1 },
+				{ name = "weed_bud", count = 2 },
+			},
+			time = 2000,
+			animation = "mechanic",
+		},
+	})
+
+	plsr.Callbacks:RegisterServerCallback("WeedRun:Enable", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		local states = char:GetData("States") or {}
 		if not hasValue(states, "SCRIPT_WEED_RUN") then
 			table.insert(states, "SCRIPT_WEED_RUN")
 			char:SetData("States", states)
-			exports['pulsar-phone']:NotificationAdd(
+			plsr.Phone.Notification:Add(
 				source,
 				"New Job Available",
 				"A new job is available, check it out.",
@@ -27,8 +65,8 @@ AddEventHandler("Labor:Server:Startup", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("WeedRun:Disable", function(source, data, cb)
-		local char = exports['pulsar-characters']:FetchCharacterSource(source)
+	plsr.Callbacks:RegisterServerCallback("WeedRun:Disable", function(source, data, cb)
+		local char = plsr.Fetch:CharacterSource(source)
 		local states = char:GetData("States") or {}
 		if hasValue(states, "SCRIPT_WEED_RUN") then
 			for k, v in ipairs(states) do
@@ -41,7 +79,7 @@ AddEventHandler("Labor:Server:Startup", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("WeedRun:StartDropoff", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("WeedRun:StartDropoff", function(source, data, cb)
 		if _joiners[source] ~= nil then
 			TriggerEvent("EmergencyAlerts:Server:ServerDoPredefined", source, "oxysale")
 			cb(true)
@@ -50,25 +88,24 @@ AddEventHandler("Labor:Server:Startup", function()
 		end
 	end)
 
-	exports["pulsar-core"]:RegisterServerCallback("WeedRun:DoDropoff", function(source, data, cb)
+	plsr.Callbacks:RegisterServerCallback("WeedRun:DoDropoff", function(source, data, cb)
 		if _joiners[source] ~= nil then
-			local char = exports['pulsar-characters']:FetchCharacterSource(source)
+			local char = plsr.Fetch:CharacterSource(source)
 			if char ~= nil then
-				if exports.ox_inventory:Remove(char:GetData("SID"), 1, "weed_brick", 1) then
-					local repLevel = exports['pulsar-characters']:RepGetLevel(source, "WeedRun") or 0
+				if plsr.Inventory.Items:Remove(char:GetData("SID"), 1, "weed_brick", 1) then
+					local repLevel = plsr.Reputation:GetLevel(source, "WeedRun") or 0
 					local calcLvl = repLevel
 					if calcLvl < 1 then
 						calcLvl = 1
 					end
 
-					local itemData = exports.ox_inventory:ItemsGetData("weed_brick")
+					local itemData = plsr.Inventory.Items:GetData("weed_brick")
 
 					local rand = math.random(100)
 					if rand >= (100 - (3 * calcLvl)) then
-						exports.ox_inventory:AddItem(source, "moneyband",
-							math.random(8, 10 + calcLvl), {}, 1)
+						plsr.Inventory:AddItem(char:GetData("SID"), "moneyband", math.random(8, 10 + calcLvl), {}, 1)
 					elseif rand >= (55 - (2 * calcLvl)) then
-						exports.ox_inventory:AddItem(
+						plsr.Inventory:AddItem(
 							char:GetData("SID"),
 							"moneyroll",
 							math.random(90, 100 + (2 * calcLvl)),
@@ -76,7 +113,7 @@ AddEventHandler("Labor:Server:Startup", function()
 							1
 						)
 					else
-						exports['pulsar-finance']:WalletModify(source, itemData.price + (30 * calcLvl))
+						plsr.Wallet:Modify(source, itemData.price + (30 * calcLvl))
 					end
 
 					_sellers[_joiners[source]].state = 2
@@ -88,18 +125,18 @@ AddEventHandler("Labor:Server:Startup", function()
 								for k2, v2 in pairs(_Groups) do
 									if v2.Creator.ID == _joiners[source] then
 										for k3, v3 in ipairs(v2.Members) do
-											exports['pulsar-labor']:CompleteOffer(v3.ID, _JOB)
+											plsr.Labor.Offers:Complete(v3.ID, _JOB)
 										end
 									end
 								end
 							end
 
-							exports['pulsar-labor']:CompleteOffer(_joiners[source], _JOB)
+							plsr.Labor.Offers:Complete(_joiners[source], _JOB)
 						end
 					end
 
-					exports['pulsar-labor']:TaskOffer(_joiners[source], _JOB, "Wait For Next Delivery")
-					exports['pulsar-core']:WaitListInteractInactive("weedrun", _joiners[source])
+					plsr.Labor.Offers:Task(_joiners[source], _JOB, "Wait For Next Delivery")
+					plsr.WaitList.Interact:Inactive("weedrun", _joiners[source])
 
 					cb(true)
 				else
@@ -115,10 +152,10 @@ AddEventHandler("Labor:Server:Startup", function()
 end)
 
 AddEventHandler("WeedRun:Server:OnDuty", function(joiner, members, isWorkgroup)
-	local char = exports['pulsar-characters']:FetchCharacterSource(joiner)
+	local char = plsr.Fetch:CharacterSource(joiner)
 	if char == nil then
-		exports['pulsar-labor']:CancelOffer(joiner, _JOB)
-		exports['pulsar-labor']:OffDuty(_JOB, joiner, false, true)
+		plsr.Labor.Offers:Cancel(joiner, _JOB)
+		plsr.Labor.Duty:Off(_JOB, joiner, false, true)
 		return
 	end
 
@@ -131,28 +168,28 @@ AddEventHandler("WeedRun:Server:OnDuty", function(joiner, members, isWorkgroup)
 		state = 0,
 	}
 
-	local char = exports['pulsar-characters']:FetchCharacterSource(joiner)
+	local char = plsr.Fetch:CharacterSource(joiner)
 	char:SetData("TempJob", _JOB)
 	TriggerClientEvent("WeedRun:Client:OnDuty", joiner, joiner, os.time())
 
-	exports['pulsar-labor']:TaskOffer(joiner, _JOB, "Wait For A Delivery")
+	plsr.Labor.Offers:Task(joiner, _JOB, "Wait For A Delivery")
 	if #members > 0 then
 		for k, v in ipairs(members) do
 			_joiners[v.ID] = joiner
-			local member = exports['pulsar-characters']:FetchCharacterSource(v.ID)
+			local member = plsr.Fetch:CharacterSource(v.ID)
 			member:SetData("TempJob", _JOB)
 			TriggerClientEvent("WeedRun:Client:OnDuty", v.ID, joiner, os.time())
 		end
 	end
 
 	_offers[joiner].noExpire = true
-	exports['pulsar-core']:WaitListInteractAdd("weedrun", joiner, {
+	plsr.WaitList.Interact:Add("weedrun", joiner, {
 		joiner = joiner,
 	})
 end)
 
 AddEventHandler("WeedRun:Server:OffDuty", function(source, joiner)
-	exports['pulsar-core']:WaitListInteractRemove("weedrun", _joiners[source])
+	plsr.WaitList.Interact:Remove("weedrun", _joiners[source])
 	_joiners[source] = nil
 	TriggerClientEvent("WeedRun:Client:OffDuty", source)
 end)
@@ -162,8 +199,8 @@ AddEventHandler("Labor:Server:WeedRun:Queue", function(source, data)
 		_sellers[_joiners[source]].state = 1
 		_sellers[_joiners[source]].location = _weedSaleLocations[math.random(#_weedSaleLocations)]
 		_offers[_joiners[source]].noExpire = false
-		exports['pulsar-labor']:TaskOffer(_joiners[source], _JOB, "Deliver The Package")
-		exports['pulsar-labor']:SendWorkgroupEvent(
+		plsr.Labor.Offers:Task(_joiners[source], _JOB, "Deliver The Package")
+		plsr.Labor.Workgroups:SendEvent(
 			_joiners[source],
 			string.format("WeedRun:Client:%s:Receive", _joiners[source]),
 			_sellers[_joiners[source]].location,
@@ -171,5 +208,5 @@ AddEventHandler("Labor:Server:WeedRun:Queue", function(source, data)
 		)
 	end
 
-	exports['pulsar-core']:WaitListInteractActive("weedrun", _joiners[source])
+	plsr.WaitList.Interact:Active("weedrun", _joiners[source])
 end)

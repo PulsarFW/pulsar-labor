@@ -63,7 +63,7 @@ local function SetupPeds(peds)
 		SetPedRelationshipGroupHash(ped, `COKE_PED`)
 		SetCanAttackFriendly(ped, false, true)
 
-		TaskTurnPedToFaceEntity(ped, LocalPlayer.state.ped, 1.0)
+		TaskTurnPedToFaceEntity(ped, PlayerPedId(), 1.0)
 	end
 
 	for k, v in ipairs(peds) do
@@ -96,7 +96,7 @@ local function SetupPeds(peds)
 end
 
 AddEventHandler("Labor:Client:Setup", function()
-	exports["pulsar-core"]:RegisterClientCallback("Labor:Coke:GetSpawnCoords", function(data, cb)
+	plsr.Callbacks:RegisterClientCallback("Labor:Coke:GetSpawnCoords", function(data, cb)
 		local coords = {}
 		for i = 1, math.random(25, 50) do
 			local c = vector3(
@@ -110,7 +110,7 @@ AddEventHandler("Labor:Client:Setup", function()
 		cb(coords)
 	end)
 
-	exports['pulsar-pedinteraction']:Add(
+	plsr.PedInteraction:Add(
 		"CokeSeller",
 		`A_M_M_BevHills_02`,
 		vector3(GlobalState["CokeRuns"][1], GlobalState["CokeRuns"][2], GlobalState["CokeRuns"][3]),
@@ -118,18 +118,18 @@ AddEventHandler("Labor:Client:Setup", function()
 		100.0,
 		{
 			{
-				icon = "face-tongue-money",
+				icon = "face-surprise",
 				text = "Let's Have Some Fun ($100,000)",
 				event = "Coke:Client:StartWork",
 				isEnabled = function()
-					return LocalPlayer.state.Character:GetData("TempJob") == nil
-						and not _dumbcunts[LocalPlayer.state.onDuty]
+					return plsr.State.character.TempJob == nil
+						and not _dumbcunts[plsr.State.flags.onDuty]
 						and not GlobalState["CokeRunActive"]
 						and (not GlobalState["CokeRunCD"] or GetCloudTimeAsInt() > GlobalState["CokeRunCD"])
 						and not GlobalState["RestartLockdown"]
 						and (
-							LocalPlayer.state.Character:GetData("CokeCD") == nil
-							or GetCloudTimeAsInt() > LocalPlayer.state.Character:GetData("CokeCD")
+							plsr.State.character.CokeCD == nil
+							or GetCloudTimeAsInt() > plsr.State.character.CokeCD
 						)
 				end,
 			},
@@ -138,14 +138,14 @@ AddEventHandler("Labor:Client:Setup", function()
 				text = "Cancel That, Give Me My Money",
 				event = "Coke:Client:Abort",
 				isEnabled = function()
-					return LocalPlayer.state.Character:GetData("TempJob") == "Coke"
+					return plsr.State.character.TempJob == "Coke"
 						and _working
 						and _state == 0
-						and _joiner == GetPlayerServerId(LocalPlayer.state.PlayerID)
+						and _joiner == GetPlayerServerId(plsr.State.flags.PlayerID)
 				end,
 			},
 		},
-		"block-question",
+		"question",
 		false,
 		true,
 		{
@@ -156,11 +156,11 @@ AddEventHandler("Labor:Client:Setup", function()
 end)
 
 AddEventHandler("Coke:Client:StartWork", function()
-	exports["pulsar-core"]:ServerCallback("Coke:StartWork")
+	plsr.Callbacks:ServerCallback("Coke:StartWork")
 end)
 
 AddEventHandler("Coke:Client:Abort", function()
-	exports["pulsar-core"]:ServerCallback("Coke:Abort")
+	plsr.Callbacks:ServerCallback("Coke:Abort")
 end)
 
 RegisterNetEvent("Coke:Client:OnDuty", function(joiner, time)
@@ -170,24 +170,23 @@ RegisterNetEvent("Coke:Client:OnDuty", function(joiner, time)
 
 	eventHandlers["receive"] = RegisterNetEvent(string.format("Coke:Client:%s:Receive", joiner), function()
 		_state = 1
-		_blip = exports["pulsar-blips"]:Add("CokeDrop", "Unknown Contact", { x = 4495.498, y = -4514.340, z = 3.021 },
-			306, 2, 1.4)
+		_blip = plsr.Blips:Add("CokeDrop", "Unknown Contact", { x = 4495.498, y = -4514.340, z = 3.021 }, 306, 2, 1.4)
 	end)
 
 	eventHandlers["poly-enter"] = AddEventHandler("Polyzone:Enter", function(id, testedPoint, insideZone, data)
 		if id == "cayo_perico" and _state == 1 then
-			exports["pulsar-core"]:ServerCallback("Coke:ArriveAtCayo", {}, function() end)
+			plsr.Callbacks:ServerCallback("Coke:ArriveAtCayo", {}, function() end)
 		elseif
 			id == "CokeDrop"
 			and _state == 3
 			and not _spawned
-			and _joiner == GetPlayerServerId(LocalPlayer.state.PlayerID)
+			and _joiner == GetPlayerServerId(plsr.State.flags.PlayerID)
 		then
-			exports["pulsar-core"]:ServerCallback("Coke:ArrivedAtPoint", {}, function(peds)
+			plsr.Callbacks:ServerCallback("Coke:ArrivedAtPoint", {}, function(peds)
 				if peds then
 					SetupPeds(peds)
 				end
-				RegisterHatedTargetsAroundPed(LocalPlayer.state.ped, _drop.size * 8)
+				RegisterHatedTargetsAroundPed(PlayerPedId(), _drop.size * 8)
 			end)
 		end
 	end)
@@ -195,7 +194,7 @@ RegisterNetEvent("Coke:Client:OnDuty", function(joiner, time)
 	eventHandlers["poly-exit"] = AddEventHandler("Polyzone:Exit", function(id, testedPoint, insideZone, data)
 		if id == "cayo_perico" then
 			if _state == 5 then
-				exports["pulsar-core"]:ServerCallback("Coke:LeftCayo", {}, function() end)
+				plsr.Callbacks:ServerCallback("Coke:LeftCayo", {}, function() end)
 			else
 			end
 		end
@@ -204,7 +203,7 @@ RegisterNetEvent("Coke:Client:OnDuty", function(joiner, time)
 	eventHandlers["cayo-contact"] = RegisterNetEvent(string.format("Coke:Client:%s:GoTo", joiner), function()
 		if _state == 1 then
 			_state = 2
-			exports['pulsar-pedinteraction']:Add(
+			plsr.PedInteraction:Add(
 				"CokeDrop",
 				GetHashKey("S_M_M_HairDress_01"),
 				vector3(4495.498, -4514.340, 3.021),
@@ -216,25 +215,25 @@ RegisterNetEvent("Coke:Client:OnDuty", function(joiner, time)
 						text = "Lets Do This",
 						event = "Coke:Client:StartHeist",
 						isEnabled = function()
-							return LocalPlayer.state.Character:GetData("TempJob") == "Coke" and _state == 2
+							return plsr.State.character.TempJob == "Coke" and _state == 2
 						end,
 					},
 				},
-				"block-question",
+				"question",
 				"WORLD_HUMAN_AA_SMOKE"
 			)
 		end
 	end)
 
 	eventHandlers["cayo-start"] = AddEventHandler("Coke:Client:StartHeist", function()
-		exports["pulsar-core"]:ServerCallback("Coke:StartHeist", {}, function() end)
+		plsr.Callbacks:ServerCallback("Coke:StartHeist", {}, function() end)
 	end)
 
 	eventHandlers["cayo-setup"] = RegisterNetEvent(string.format("Coke:Client:%s:SetupHeist", joiner), function(drop)
 		_state = 3
 		_drop = drop
-		exports["pulsar-blips"]:Remove("CokeDrop")
-		_blip = exports["pulsar-blips"]:Add(
+		plsr.Blips:Remove("CokeDrop")
+		_blip = plsr.Blips:Add(
 			"CokeDrop",
 			"Unknown Objective",
 			{ x = _drop.coords.x, y = _drop.coords.y, z = _drop.coords.z },
@@ -246,14 +245,14 @@ RegisterNetEvent("Coke:Client:OnDuty", function(joiner, time)
 		SetBlipColour(_blipArea, 3)
 		SetBlipAlpha(_blipArea, 90)
 
-		exports['pulsar-polyzone']:CreateCircle("CokeDrop", _drop.coords, _drop.size * 2.0, {
+		plsr.Polyzone.Create:Circle("CokeDrop", _drop.coords, _drop.size * 2.0, {
 			--debugPoly = true
 		}, _drop)
 	end)
 
 	eventHandlers["cayo-doshit"] = RegisterNetEvent(string.format("Coke:Client:%s:DoShit", joiner), function()
 		_spawned = true
-		RegisterHatedTargetsAroundPed(LocalPlayer.state.ped, _drop.size * 2)
+		RegisterHatedTargetsAroundPed(PlayerPedId(), _drop.size * 2)
 	end)
 
 	eventHandlers["fetch"] = RegisterNetEvent(string.format("Coke:Client:%s:FetchItems", joiner), function()
@@ -262,16 +261,15 @@ RegisterNetEvent("Coke:Client:OnDuty", function(joiner, time)
 
 	eventHandlers["go-back"] = RegisterNetEvent(string.format("Coke:Client:%s:GoBack", joiner), function()
 		_state = 5
-		exports["pulsar-blips"]:Remove("CokeDrop")
+		plsr.Blips:Remove("CokeDrop")
 		RemoveBlip(_blipArea)
-		exports['pulsar-polyzone']:Remove("CokeDrop")
-		_blip = exports["pulsar-blips"]:Add("CokeDrop", "Unknown Contact", { x = 1292.455, y = -3170.885, z = 4.906 },
-			306, 2, 1.4)
+		plsr.Polyzone:Remove("CokeDrop")
+		_blip = plsr.Blips:Add("CokeDrop", "Unknown Contact", { x = 1292.455, y = -3170.885, z = 4.906 }, 306, 2, 1.4)
 	end)
 
 	eventHandlers["setup-finish"] = RegisterNetEvent(string.format("Coke:Client:%s:SetupFinish", joiner), function()
 		_state = 6
-		exports['pulsar-pedinteraction']:Add(
+		plsr.PedInteraction:Add(
 			"CokeDrop",
 			GetHashKey("A_M_Y_Beach_01"),
 			vector3(1292.455, -3170.885, 4.906),
@@ -283,24 +281,24 @@ RegisterNetEvent("Coke:Client:OnDuty", function(joiner, time)
 					text = "I've Done What You Asked",
 					event = "Coke:Client:Finish",
 					isEnabled = function()
-						return LocalPlayer.state.Character:GetData("TempJob") == "Coke" and _state == 6
+						return plsr.State.character.TempJob == "Coke" and _state == 6
 					end,
 				},
 			},
-			"block-question",
+			"question",
 			"WORLD_HUMAN_AA_SMOKE"
 		)
 	end)
 
 	eventHandlers["finish"] = AddEventHandler("Coke:Client:Finish", function()
-		exports["pulsar-core"]:ServerCallback("Coke:Finish", {}, function() end)
+		plsr.Callbacks:ServerCallback("Coke:Finish", {}, function() end)
 	end)
 end)
 
 AddEventHandler("Coke:Client:StartJob", function()
-	exports["pulsar-core"]:ServerCallback("Coke:StartJob", _joiner, function(state)
+	plsr.Callbacks:ServerCallback("Coke:StartJob", _joiner, function(state)
 		if not state then
-			exports["pulsar-hud"]:Notification("error", "Unable To Start Job")
+			plsr.Notification:Error("Unable To Start Job")
 		end
 	end)
 end)
@@ -310,9 +308,9 @@ RegisterNetEvent("Coke:Client:OffDuty", function(time)
 		RemoveEventHandler(v)
 	end
 
-	exports['pulsar-pedinteraction']:Remove("CokeDrop")
-	exports['pulsar-polyzone']:Remove("CokeDrop")
-	exports["pulsar-blips"]:Remove("CokeDrop")
+	plsr.PedInteraction:Remove("CokeDrop")
+	plsr.Polyzone:Remove("CokeDrop")
+	plsr.Blips:Remove("CokeDrop")
 	RemoveBlip(_blipArea)
 
 	_joiner = nil
