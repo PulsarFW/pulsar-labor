@@ -59,6 +59,15 @@ loadAnimDict = function(dict)
 		Wait(10)
 	end
 end
+
+
+local binKey = function(entity)
+	if not entity or entity == 0 or not DoesEntityExist(entity) then
+		return nil
+	end
+	local coords = GetEntityCoords(entity)
+	return string.format("%.2f:%.2f:%.2f", coords.x, coords.y, coords.z)
+end
 AddEventHandler("Labor:Client:Setup", function()
 	plsr.State.flags.inGarbagbeZone = false
 	plsr.State.flags.carryingGarbabge = false
@@ -136,10 +145,12 @@ RegisterNetEvent("Garbage:Client:OnDuty", function(joiner, time)
 					event = "Garbage:Client:TrashGrab",
 					data = "Garbage",
 					isEnabled = function(data, entity)
-						return not _entities[ObjToNet(entity.entity)]
-							and plsr.State.flags.inGarbagbeZone
-							and GarbageObject == nil
-							and _state == 2
+						if _state ~= 2 or GarbageObject ~= nil or not plsr.State.flags.inGarbagbeZone then
+							return false
+						end
+
+						local key = binKey(entity.entity)
+						return key ~= nil and not _entities[key]
 					end,
 				},
 			}, 3.0)
@@ -179,8 +190,11 @@ RegisterNetEvent("Garbage:Client:OnDuty", function(joiner, time)
 		SetBlipAlpha(_blip, 90)
 	end)
 
-	eventHandlers["actions"] = RegisterNetEvent(string.format("Garbage:Client:%s:Action", joiner), function(netId)
-		_entities[netId] = true
+	eventHandlers["actions"] = RegisterNetEvent(string.format("Garbage:Client:%s:Action", joiner), function(key)
+		if key == nil then
+			return
+		end
+		_entities[key] = true
 	end)
 
 	eventHandlers["end-pickup"] = RegisterNetEvent(string.format("Garbage:Client:%s:EndRoutes", joiner), function()
@@ -202,9 +216,15 @@ RegisterNetEvent("Garbage:Client:OnDuty", function(joiner, time)
 			GarbageObject = nil
 		end
 
-		plsr.Callbacks:ServerCallback("Garbage:TrashGrab", ObjToNet(entity.entity), function(s)
+		local key = binKey(entity.entity)
+		if key == nil then
+			return
+		end
+
+		plsr.Callbacks:ServerCallback("Garbage:TrashGrab", key, function(s)
 			if s then
 				plsr.State.flags.carryingGarbabge = true
+				_entities[key] = true
 			end
 		end)
 	end)
@@ -307,6 +327,7 @@ RegisterNetEvent("Garbage:Client:OffDuty", function(time)
 	end
 
 	eventHandlers = {}
+	_entities = {}
 	_joiner = nil
 	_working = false
 	_route = nil
