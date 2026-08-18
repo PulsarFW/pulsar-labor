@@ -5,7 +5,7 @@ name 'Pulsar Labor'
 description 'Side-gig gathering jobs'
 author 'Artmines - maintained for Pulsar Framework'
 url 'https://pulsarframe.work'
-version 'v1.0.0'
+version 'v1.0.1'
 
 version_check 'yes'
 github 'https://github.com/PulsarFW/pulsar_labor'
